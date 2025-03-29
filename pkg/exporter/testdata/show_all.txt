@@ -1,0 +1,43 @@
+/c4 Driver Version = 2.26.02.014
+/c4 Model = 9650SE-4LPML
+/c4 Available Memory = 224MB
+/c4 Firmware Version = FE9X 4.10.00.027
+/c4 Bios Version = BE9X 4.08.00.004
+/c4 Boot Loader Version = BL9X 3.08.00.001
+/c4 Serial Number = L1234568912345
+/c4 PCB Version = Rev 035
+/c4 PCHIP Version = 2.00
+/c4 ACHIP Version = 1.90
+/c4 Number of Ports = 4
+/c4 Number of Drives = 4
+/c4 Number of Units = 1
+/c4 Total Optimal Units = 1
+/c4 Not Optimal Units = 0
+/c4 JBOD Export Policy = off
+/c4 Disk Spinup Policy = 1
+/c4 Spinup Stagger Time Policy (sec) = 1
+/c4 Auto-Carving Policy = off
+/c4 Auto-Carving Size = 2048 GB
+/c4 Auto-Rebuild Policy = on
+/c4 Rebuild Mode = Adaptive
+/c4 Rebuild Rate = 1
+/c4 Verify Mode = Adaptive
+/c4 Verify Rate = 1
+/c4 Controller Bus Type = PCIe
+/c4 Controller Bus Width = 4 lanes
+/c4 Controller Bus Speed = 2.5 Gbps/lane
+
+Unit  UnitType  Status         %RCmpl  %V/I/M  Stripe  Size(GB)  Cache  AVrfy
+------------------------------------------------------------------------------
+u0    RAID-5    OK             -       -       256K    8381.87   Ri     ON
+
+VPort Status         Unit Size      Type  Phy Encl-Slot    Model
+------------------------------------------------------------------------------
+p0    OK             u0   3.63 TB   SATA  0   -            MODELA1
+p1    OK             u0   3.63 TB   SATA  1   -            MODELA1
+p2    OK             u0   3.63 TB   SATA  2   -            MODEL_X2
+p3    OK             u0   3.63 TB   SATA  3   -            MODEL_P4
+
+Name  OnlineState  BBUReady  Status    Volt     Temp     Hours  LastCapTest
+---------------------------------------------------------------------------
+bbu   On           No        NoBattery -        -        -      -
