@@ -32,6 +32,11 @@ var (
 		"Report percent complete if unit is rebuilding or verifying",
 		[]string{"controller", "unit", "state"}, nil,
 	)
+	driveStatusDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "status"),
+		"Drive Status",
+		[]string{"status", "unit", "size", "type", "phy", "model"}, nil,
+	)
 	scrapeDuration = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "scrape", "collector_duration_seconds"),
 		"Number of seconds taken to scrape metrics",
@@ -75,6 +80,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	ok := e.CollectControllerDetails(ch)
 	ok = e.CollectUnitStatus(ch)
+	ok = e.CollectDriveStatus(ch)
 
 	if !ok {
 		success = 0
@@ -124,6 +130,29 @@ func (e *Exporter) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 		if slices.Contains(percentStates, unitStatus) {
 			ch <- prometheus.MustNewConstMetric(
 				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controller, unit, unitStatus,
+			)
+		}
+	}
+
+	return true
+}
+
+func (e *Exporter) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
+	var statusGaugeValue float64 = 0
+
+	for _, controller := range e.Controllers {
+		drives, err := e.TWCli.GetDriveStatus(controller)
+		if err != nil {
+			return false
+		}
+
+		for _, drive := range drives {
+			if drive.Status == "OK" {
+				statusGaugeValue = 1
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				driveStatusDesc, prometheus.GaugeValue, statusGaugeValue, drive.Status, drive.Unit, drive.Size, drive.Type, drive.Phy, drive.Model,
 			)
 		}
 	}

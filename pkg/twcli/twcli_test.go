@@ -56,7 +56,7 @@ func TestGetControllerInfo(t *testing.T) {
 	twcli := mockTWCli(mshell)
 	output, err := twcli.GetControllerInfo("/c4")
 	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, output, []string{"/c4", "9650SE-4LPML", "224", "FE9X 4.10.00.027", "BE9X 4.08.00.004", "L1234568912345"})
+	assert.Equal(t, output, []string{"/c4", "9650SE-4LPML", "234881024", "FE9X 4.10.00.027", "BE9X 4.08.00.004", "L1234568912345"})
 }
 
 func TestGetUnitStatusOK(t *testing.T) {
@@ -114,4 +114,27 @@ func TestGetUnitStatusVERIFYING(t *testing.T) {
 	assert.Equal(t, unitType, "RAID-5")
 	assert.Equal(t, unitStatus, "VERIFYING")
 	assert.Equal(t, percentComplete, 21)
+}
+
+func TestGetDriveStatus(t *testing.T) {
+	testdata, err := testutil.ReadTestOutputData("testdata/show_drivestatus.txt")
+	if err != nil {
+		t.Fatalf("Error reading test data: %s", err)
+	}
+	mshell := MockShell{
+		Output: testdata,
+		Err:    nil,
+	}
+
+	expectedOutput := []twcli.DriveLabels{
+		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
+		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
+		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
+		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "3", Model: "ST4000VN006-3CW104"},
+	}
+
+	twcli := mockTWCli(mshell)
+	drives, err := twcli.GetDriveStatus("/c4")
+	assert.Nil(t, err, "unexpected error: %v", err)
+	assert.Equal(t, drives, expectedOutput)
 }
