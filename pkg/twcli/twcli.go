@@ -3,6 +3,7 @@ package twcli
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -87,42 +88,34 @@ func (twcli *TWCli) GetControllers() ([]string, error) {
 }
 
 func (twcli *TWCli) GetControllerInfo(controller string) ([]string, error) {
-	var labels []string
+	labels := []string{controller}
 
 	output, err := twcli.RunCommand(controller, "show", "all")
 	if err != nil {
 		return labels, err
 	}
 
-	var controllerFields = map[string]parseOptions{
-		"Model":            {HasUnits: false, Units: ""},
-		"Available Memory": {HasUnits: true, Units: "MB"},
-		"Firmware Version": {HasUnits: false, Units: ""},
-		"Bios Version":     {HasUnits: false, Units: ""},
-		"Serial Number":    {HasUnits: false, Units: ""},
-	}
+	fields := []string{"Model", "Available Memory", "Firmware Version", "Bios Version", "Serial Number"}
 
-	labels = append(labels, controller)
-	for _, line := range strings.Split(string(output), "\n") {
-		prefix := controller + " "
-		if strings.HasPrefix(line, prefix) {
-			splitLine := strings.Split(line, "=")
-			key := strings.Trim(splitLine[0], " ")
-			options, ok := controllerFields[strings.TrimPrefix(key, prefix)]
-			if ok {
-				value := strings.Split(line, "=")[1]
+	for _, field := range fields {
+		pattern := fmt.Sprintf(`%s\s*%s\s*=\s*(.*)`, controller, field)
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(string(output))
 
-				if options.HasUnits {
-					v := strings.TrimSuffix(value, options.Units)
-					value, err = convertToBytes(strings.TrimSpace(v), options.Units)
-					if err != nil {
-						return labels, err
-					}
-				}
+		if len(matches) != 2 {
+			continue
+		}
 
-				labels = append(labels, strings.TrimSpace(value))
+		value := matches[1]
+		if field == "Available Memory" {
+			number, unit := parseAvailableMemory(value)
+			value, err = convertToBytes(number, unit)
+			if err != nil {
+				return labels, err
 			}
 		}
+
+		labels = append(labels, value)
 	}
 
 	return labels, nil
