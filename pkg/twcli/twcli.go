@@ -1,6 +1,7 @@
 package twcli
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -16,10 +17,18 @@ type TWCli struct {
 	CacheDuration int
 }
 
-// TODO: Maybe change this to be a little more generic
 type parseOptions struct {
 	HasUnits bool
 	Units    string
+}
+
+type DriveLabels struct {
+	Status string
+	Unit   string
+	Size   string
+	Type   string
+	Phy    string
+	Model  string
 }
 
 type CacheRecord struct {
@@ -104,7 +113,11 @@ func (twcli *TWCli) GetControllerInfo(controller string) ([]string, error) {
 				value := strings.Split(line, "=")[1]
 
 				if options.HasUnits {
-					value = strings.TrimSuffix(value, options.Units)
+					v := strings.TrimSuffix(value, options.Units)
+					value, err = convertToBytes(strings.TrimSpace(v), options.Units)
+					if err != nil {
+						return labels, err
+					}
 				}
 
 				labels = append(labels, strings.TrimSpace(value))
@@ -148,4 +161,46 @@ func (twcli *TWCli) GetUnitStatus(controller string) (string, string, string, in
 	}
 
 	return unit, unitType, unitStatus, percentComplete, nil
+}
+
+func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
+	var drives []DriveLabels
+
+	output, err := twcli.RunCommand(controller, "show", "drivestatus")
+	if err != nil {
+		return drives, err
+	}
+
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.HasPrefix(line, "p") {
+			driveDetails := strings.Fields(line)
+			lineLength := len(driveDetails)
+
+			driveStatus := driveDetails[1]
+			unit := driveDetails[2]
+			driveSize := driveDetails[3]
+			driveSizeUnit := driveDetails[4]
+			driveSizeBytes, _ := convertToBytes(driveSize, driveSizeUnit)
+
+			driveType := driveDetails[5]
+			drivePhy := driveDetails[6]
+			driveModel := driveDetails[8]
+
+			if lineLength > 9 {
+				driveModel = fmt.Sprintf("%s %s", driveDetails[8], driveDetails[9])
+			}
+
+			labels := DriveLabels{
+				Status: driveStatus,
+				Unit:   unit,
+				Size:   driveSizeBytes,
+				Type:   driveType,
+				Phy:    drivePhy,
+				Model:  driveModel,
+			}
+			drives = append(drives, labels)
+		}
+	}
+
+	return drives, nil
 }

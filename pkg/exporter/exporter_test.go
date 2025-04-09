@@ -111,7 +111,7 @@ func TestCollectControllerDetails(t *testing.T) {
 	assert.True(t, result)
 	assert.Len(t, ch, 1)
 
-	expectedMetrics := labelMap{"available_memory": "224", "bios_version": "BE9X 4.08.00.004", "controller": "/c4", "firmware_version": "FE9X 4.10.00.027", "model": "9650SE-4LPML", "serial_number": "L1234568912345"}
+	expectedMetrics := labelMap{"available_memory": "234881024", "bios_version": "BE9X 4.08.00.004", "controller": "/c4", "firmware_version": "FE9X 4.10.00.027", "model": "9650SE-4LPML", "serial_number": "L1234568912345"}
 
 	for metric := range ch {
 		data := readMetric(metric)
@@ -223,5 +223,36 @@ func TestCollectUnitStatusVerifying(t *testing.T) {
 		assert.Equal(t, data.value, expectedValues[len(data.labels)])
 		assert.Equal(t, data.metricType, io_prometheus_client.MetricType_GAUGE)
 		assert.Equal(t, data.labels, expectedLabels[len(data.labels)])
+	}
+}
+
+func TestCollectDriveStatus(t *testing.T) {
+	output, err := testutil.ReadTestOutputData("testdata/show_drivestatus.txt")
+	if err != nil {
+		t.Fatalf("Error reading test data: %s", err)
+	}
+	mshell := MockShell{
+		Output: output,
+		Err:    nil,
+	}
+
+	exporter := mockExporter(mshell)
+	ch := make(chan prometheus.Metric, 4)
+	result := exporter.CollectDriveStatus(ch)
+	close(ch)
+
+	assert.True(t, result)
+	assert.Len(t, ch, 4)
+
+	expectedMetrics := map[string]labelMap{
+		"0": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "0", "model": "ST4000VN006-3CW104"},
+		"1": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "1", "model": "ST4000VN006-3CW104"},
+		"2": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "2", "model": "TOSHIBA HDWG440"},
+		"3": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "3", "model": "ST4000VN006-3CW104"},
+	}
+
+	for metric := range ch {
+		data := readMetric(metric)
+		assert.Equal(t, data.labels, expectedMetrics[data.labels["phy"]])
 	}
 }
