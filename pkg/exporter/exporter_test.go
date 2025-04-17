@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	testutil "github.com/pritpal-sabharwal/prometheus-twcli-exporter/internal/testutil"
@@ -29,6 +30,14 @@ type MockShell struct {
 	Err         error
 	LastCommand string
 }
+
+type mockCollector struct {
+	ctrlOK, unitOK, driveOK bool
+}
+
+func (m mockCollector) CollectControllerDetails(ch chan<- prometheus.Metric) bool { return m.ctrlOK }
+func (m mockCollector) CollectUnitStatus(ch chan<- prometheus.Metric) bool        { return m.unitOK }
+func (m mockCollector) CollectDriveStatus(ch chan<- prometheus.Metric) bool       { return m.driveOK }
 
 func (t *MockShell) Execute(cmd string, args ...string) ([]byte, error) {
 	t.LastCommand = cmd
@@ -254,5 +263,49 @@ func TestCollectDriveStatus(t *testing.T) {
 	for metric := range ch {
 		data := readMetric(metric)
 		assert.Equal(t, data.labels, expectedMetrics[data.labels["phy"]])
+	}
+}
+
+func TestExporterCollectOK(t *testing.T) {
+	ch := make(chan prometheus.Metric, 2)
+	e := exporter.Exporter{
+		Collector: mockCollector{
+			ctrlOK:  true,
+			unitOK:  true,
+			driveOK: true,
+		},
+	}
+	e.Collect(ch)
+	close(ch)
+
+	assert.Len(t, ch, 2)
+	for metric := range ch {
+		desc := metric.Desc().String()
+		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
+			data := readMetric(metric)
+			assert.Equal(t, data.value, 1.0)
+		}
+	}
+}
+
+func TestExporterCollectFail(t *testing.T) {
+	ch := make(chan prometheus.Metric, 2)
+	e := exporter.Exporter{
+		Collector: mockCollector{
+			ctrlOK:  false,
+			unitOK:  true,
+			driveOK: true,
+		},
+	}
+	e.Collect(ch)
+	close(ch)
+
+	assert.Len(t, ch, 2)
+	for metric := range ch {
+		desc := metric.Desc().String()
+		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
+			data := readMetric(metric)
+			assert.Equal(t, data.value, 0.0)
+		}
 	}
 }
