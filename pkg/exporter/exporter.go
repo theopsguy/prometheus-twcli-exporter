@@ -16,6 +16,18 @@ const (
 	namespace = "tw_cli"
 )
 
+type MetricsCollector interface {
+	CollectControllerDetails(ch chan<- prometheus.Metric) bool
+	CollectUnitStatus(ch chan<- prometheus.Metric) bool
+	CollectDriveStatus(ch chan<- prometheus.Metric) bool
+}
+
+type Exporter struct {
+	Controllers []string
+	TWCli       twcli.TWCli
+	Collector   MetricsCollector
+}
+
 var (
 	controllerInfo = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "controller", "info"),
@@ -49,11 +61,6 @@ var (
 	)
 )
 
-type Exporter struct {
-	Controllers []string
-	TWCli       twcli.TWCli
-}
-
 func New(cfg config.Config) (*Exporter, error) {
 	shell := shell.LocalShell{}
 	twcli := twcli.New(cfg.CacheDuration, cfg.Executable, shell)
@@ -78,9 +85,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
 	var success float64 = 1
 
-	ok := e.CollectControllerDetails(ch)
-	ok = e.CollectUnitStatus(ch)
-	ok = e.CollectDriveStatus(ch)
+	ok := e.Collector.CollectControllerDetails(ch)
+	ok = e.Collector.CollectUnitStatus(ch) && ok
+	ok = e.Collector.CollectDriveStatus(ch) && ok
 
 	if !ok {
 		success = 0
