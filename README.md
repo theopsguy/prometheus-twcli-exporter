@@ -26,6 +26,7 @@ You will require the tw-cli utility installed for the exporter to obtain the var
 | tw_cli_controller_info                   | General information regarding controller                       |
 | tw_cli_unit_percent_complete             | If unit is REBUILDING/ VERIFYING return percent complete value |
 | tw_cli_unit_status                       | Indicates unit health                                          |
+| tw_cli_drive_status                      | Indicates physical status                                      |
 
 ## Compatibility
 
