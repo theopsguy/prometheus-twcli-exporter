@@ -1,0 +1,7 @@
+
+VPort Status         Unit Size      Type  Phy Encl-Slot    Model
+------------------------------------------------------------------------------
+p0    OK             u0   3.63 TB   SATA  0   -            ST4000VN006-3CW104
+p1    DEGRADED       u0   3.63 TB   SATA  1   -            ST4000VN006-3CW104
+p2    OK             u0   3.63 TB   SATA  2   -            TOSHIBA HDWG440
+p3    OK             u0   3.63 TB   SATA  3   -            ST4000VN006-3CW104

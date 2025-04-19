@@ -145,8 +145,6 @@ func (e *Exporter) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 }
 
 func (e *Exporter) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
-	var statusGaugeValue float64 = 0
-
 	for _, controller := range e.Controllers {
 		drives, err := e.TWCli.GetDriveStatus(controller)
 		if err != nil {
@@ -154,6 +152,8 @@ func (e *Exporter) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
 		}
 
 		for _, drive := range drives {
+			var statusGaugeValue float64 = 0
+
 			if drive.Status == "OK" {
 				statusGaugeValue = 1
 			}
