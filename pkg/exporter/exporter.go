@@ -22,10 +22,13 @@ type MetricsCollector interface {
 	CollectDriveStatus(ch chan<- prometheus.Metric) bool
 }
 
-type Exporter struct {
+type Collector struct {
 	Controllers []string
 	TWCli       twcli.TWCli
-	Collector   MetricsCollector
+}
+
+type Exporter struct {
+	Collector MetricsCollector
 }
 
 var (
@@ -70,9 +73,13 @@ func New(cfg config.Config) (*Exporter, error) {
 		os.Exit(1)
 	}
 
-	return &Exporter{
+	collector := &Collector{
 		Controllers: controllers,
 		TWCli:       *twcli,
+	}
+
+	return &Exporter{
+		Collector: collector,
 	}, nil
 }
 
@@ -99,10 +106,10 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 }
 
-func (e *Exporter) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
+func (c *Collector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
 
-	for _, controller := range e.Controllers {
-		labels, err := e.TWCli.GetControllerInfo(controller)
+	for _, controller := range c.Controllers {
+		labels, err := c.TWCli.GetControllerInfo(controller)
 		if err != nil {
 			return false
 		}
@@ -115,13 +122,13 @@ func (e *Exporter) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
 	return true
 }
 
-func (e *Exporter) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
+func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 	okStates := []string{"OK", "VERIFYING"}
 	percentStates := []string{"VERIFYING", "REBUILDING"}
 	var statusGaugeValue float64 = 0
 
-	for _, controller := range e.Controllers {
-		unit, unitType, unitStatus, percentComplete, err := e.TWCli.GetUnitStatus(controller)
+	for _, controller := range c.Controllers {
+		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controller)
 		if err != nil {
 			return false
 		}
@@ -144,9 +151,9 @@ func (e *Exporter) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 	return true
 }
 
-func (e *Exporter) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
-	for _, controller := range e.Controllers {
-		drives, err := e.TWCli.GetDriveStatus(controller)
+func (c *Collector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
+	for _, controller := range c.Controllers {
+		drives, err := c.TWCli.GetDriveStatus(controller)
 		if err != nil {
 			return false
 		}

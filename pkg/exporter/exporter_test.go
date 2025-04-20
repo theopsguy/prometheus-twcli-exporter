@@ -7,54 +7,46 @@ import (
 	"strings"
 	"testing"
 
-	testutil "github.com/pritpal-sabharwal/prometheus-twcli-exporter/internal/testutil"
+	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/internal/testutil"
 	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/config"
 	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/exporter"
 	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/twcli"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 )
 
 type labelMap map[string]string
 
-type MetricResult struct {
+type metricResult struct {
 	labels     labelMap
 	value      float64
-	metricType dto.MetricType
+	metricType io_prometheus_client.MetricType
 }
 
-type MockShell struct {
+type mockShell struct {
 	Output      []byte
 	Err         error
 	LastCommand string
 }
 
-type mockCollector struct {
-	ctrlOK, unitOK, driveOK bool
-}
-
-func (m mockCollector) CollectControllerDetails(ch chan<- prometheus.Metric) bool { return m.ctrlOK }
-func (m mockCollector) CollectUnitStatus(ch chan<- prometheus.Metric) bool        { return m.unitOK }
-func (m mockCollector) CollectDriveStatus(ch chan<- prometheus.Metric) bool       { return m.driveOK }
-
-func (t *MockShell) Execute(cmd string, args ...string) ([]byte, error) {
+func (t *mockShell) Execute(cmd string, args ...string) ([]byte, error) {
 	t.LastCommand = cmd
 
 	return t.Output, t.Err
 }
 
-func mockExporter(shell MockShell) exporter.Exporter {
+func mockExporter(shell mockShell) exporter.Exporter {
 	var cacheMap = make(map[string]twcli.CacheRecord)
 	cli := twcli.TWCli{CacheDuration: 1, Cmd: "/fake/tw-cli", Cache: cacheMap, Shell: &shell}
-	exporter := exporter.Exporter{Controllers: []string{"/c4"}, TWCli: cli}
+	collector := exporter.Collector{Controllers: []string{"/c4"}, TWCli: cli}
+	exporter := exporter.Exporter{Collector: &collector}
 
 	return exporter
 }
 
-func readMetric(m prometheus.Metric) MetricResult {
-	pb := &dto.Metric{}
+func readMetric(m prometheus.Metric) metricResult {
+	pb := &io_prometheus_client.Metric{}
 	m.Write(pb)
 	labels := make(labelMap, len(pb.Label))
 	for _, v := range pb.Label {
@@ -62,16 +54,16 @@ func readMetric(m prometheus.Metric) MetricResult {
 	}
 
 	if pb.Gauge != nil {
-		return MetricResult{labels: labels, value: pb.GetGauge().GetValue(), metricType: dto.MetricType_GAUGE}
+		return metricResult{labels: labels, value: pb.GetGauge().GetValue(), metricType: io_prometheus_client.MetricType_GAUGE}
 	}
 	if pb.Counter != nil {
-		return MetricResult{labels: labels, value: pb.GetCounter().GetValue(), metricType: dto.MetricType_COUNTER}
+		return metricResult{labels: labels, value: pb.GetCounter().GetValue(), metricType: io_prometheus_client.MetricType_COUNTER}
 	}
 	if pb.Summary != nil {
-		return MetricResult{labels: labels, value: pb.GetSummary().GetSampleSum(), metricType: dto.MetricType_SUMMARY}
+		return metricResult{labels: labels, value: pb.GetSummary().GetSampleSum(), metricType: io_prometheus_client.MetricType_SUMMARY}
 	}
 	if pb.Untyped != nil {
-		return MetricResult{labels: labels, value: pb.GetUntyped().GetValue(), metricType: dto.MetricType_UNTYPED}
+		return metricResult{labels: labels, value: pb.GetUntyped().GetValue(), metricType: io_prometheus_client.MetricType_UNTYPED}
 	}
 	panic("Unsupported metric type")
 }
@@ -106,15 +98,14 @@ func TestCollectControllerDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
-
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 1)
-	result := exporter.CollectControllerDetails(ch)
+	result := e.Collector.CollectControllerDetails(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -136,15 +127,14 @@ func TestCollectUnitStatusOK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
-
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 1)
-	result := exporter.CollectUnitStatus(ch)
+	result := e.Collector.CollectUnitStatus(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -166,15 +156,14 @@ func TestCollectUnitStatusRebuilding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
-
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 2)
-	result := exporter.CollectUnitStatus(ch)
+	result := e.Collector.CollectUnitStatus(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -203,15 +192,14 @@ func TestCollectUnitStatusVerifying(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
-
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 2)
-	result := exporter.CollectUnitStatus(ch)
+	result := e.Collector.CollectUnitStatus(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -240,14 +228,14 @@ func TestCollectDriveStatusOK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 4)
-	result := exporter.CollectDriveStatus(ch)
+	result := e.Collector.CollectDriveStatus(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -272,14 +260,14 @@ func TestCollectDriveStatusDEGRADED(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
-	mshell := MockShell{
+	mshell := mockShell{
 		Output: output,
 		Err:    nil,
 	}
 
-	exporter := mockExporter(mshell)
+	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 4)
-	result := exporter.CollectDriveStatus(ch)
+	result := e.Collector.CollectDriveStatus(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -302,14 +290,26 @@ func TestCollectDriveStatusDEGRADED(t *testing.T) {
 	}
 }
 
+type mockCollector struct {
+	ctrlOK, unitOK, driveOK bool
+}
+
+func (m *mockCollector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
+	return m.ctrlOK
+}
+
+func (m *mockCollector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
+	return m.unitOK
+}
+
+func (m *mockCollector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
+	return m.driveOK
+}
+
 func TestExporterCollectOK(t *testing.T) {
 	ch := make(chan prometheus.Metric, 2)
-	e := exporter.Exporter{
-		Collector: mockCollector{
-			ctrlOK:  true,
-			unitOK:  true,
-			driveOK: true,
-		},
+	e := &exporter.Exporter{
+		Collector: &mockCollector{true, true, true},
 	}
 	e.Collect(ch)
 	close(ch)
@@ -326,12 +326,8 @@ func TestExporterCollectOK(t *testing.T) {
 
 func TestExporterCollectFail(t *testing.T) {
 	ch := make(chan prometheus.Metric, 2)
-	e := exporter.Exporter{
-		Collector: mockCollector{
-			ctrlOK:  false,
-			unitOK:  true,
-			driveOK: true,
-		},
+	e := &exporter.Exporter{
+		Collector: &mockCollector{false, true, true},
 	}
 	e.Collect(ch)
 	close(ch)
