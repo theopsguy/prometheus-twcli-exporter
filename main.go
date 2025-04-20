@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	exporterName = "prometheus-twcli-exporter"
+	exporterName = "prometheus_twcli_exporter"
 )
 
 func main() {
