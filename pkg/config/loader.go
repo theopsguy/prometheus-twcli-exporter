@@ -6,6 +6,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type StartupFlags struct {
+	ConfigFile string
+	Version    bool
+}
+
+type Config struct {
+	Listen        ListenConfig
+	CacheDuration int
+	Executable    string
+}
+
+type ListenConfig struct {
+	Port    int
+	Address string
+}
+
 func LoadConfigFromFile(config *Config, filename string) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
