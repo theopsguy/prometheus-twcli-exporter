@@ -124,9 +124,9 @@ func TestCollectControllerDetails(t *testing.T) {
 	for metric := range ch {
 		data := readMetric(metric)
 
-		assert.Equal(t, data.value, 1.0)
-		assert.Equal(t, data.metricType, io_prometheus_client.MetricType_GAUGE)
-		assert.Equal(t, data.labels, expectedMetrics)
+		assert.Equal(t, 1.0, data.value)
+		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
+		assert.Equal(t, expectedMetrics, data.labels)
 	}
 }
 
@@ -153,9 +153,9 @@ func TestCollectUnitStatusOK(t *testing.T) {
 	for metric := range ch {
 		data := readMetric(metric)
 
-		assert.Equal(t, data.value, 1.0)
-		assert.Equal(t, data.metricType, io_prometheus_client.MetricType_GAUGE)
-		assert.Equal(t, data.labels, expectedMetrics)
+		assert.Equal(t, 1.0, data.value)
+		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
+		assert.Equal(t, expectedMetrics, data.labels)
 	}
 }
 
@@ -189,9 +189,9 @@ func TestCollectUnitStatusRebuilding(t *testing.T) {
 
 	for metric := range ch {
 		data := readMetric(metric)
-		assert.Equal(t, data.value, expectedValues[len(data.labels)])
-		assert.Equal(t, data.metricType, io_prometheus_client.MetricType_GAUGE)
-		assert.Equal(t, data.labels, expectedLabels[len(data.labels)])
+		assert.Equal(t, expectedValues[len(data.labels)], data.value)
+		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
+		assert.Equal(t, expectedLabels[len(data.labels)], data.labels)
 	}
 }
 
@@ -225,9 +225,9 @@ func TestCollectUnitStatusVerifying(t *testing.T) {
 
 	for metric := range ch {
 		data := readMetric(metric)
-		assert.Equal(t, data.value, expectedValues[len(data.labels)])
-		assert.Equal(t, data.metricType, io_prometheus_client.MetricType_GAUGE)
-		assert.Equal(t, data.labels, expectedLabels[len(data.labels)])
+		assert.Equal(t, expectedValues[len(data.labels)], data.value)
+		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
+		assert.Equal(t, expectedLabels[len(data.labels)], data.labels)
 	}
 }
 
@@ -258,8 +258,8 @@ func TestCollectDriveStatusOK(t *testing.T) {
 
 	for metric := range ch {
 		data := readMetric(metric)
-		assert.Equal(t, data.labels, expectedMetrics[data.labels["phy"]])
-		assert.Equal(t, data.value, 1.0)
+		assert.Equal(t, expectedMetrics[data.labels["phy"]], data.labels)
+		assert.Equal(t, 1.0, data.value)
 	}
 }
 
@@ -290,10 +290,10 @@ func TestCollectDriveStatusDEGRADED(t *testing.T) {
 
 	for metric := range ch {
 		data := readMetric(metric)
-		assert.Equal(t, data.labels, expectedMetrics[data.labels["phy"]])
+		assert.Equal(t, expectedMetrics[data.labels["phy"]], data.labels)
 
 		if data.labels["status"] != "OK" {
-			assert.Equal(t, data.value, 0.0)
+			assert.Equal(t, 0.0, data.value)
 		}
 	}
 }
@@ -396,7 +396,7 @@ func TestExporterCollectOK(t *testing.T) {
 		desc := metric.Desc().String()
 		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
 			data := readMetric(metric)
-			assert.Equal(t, data.value, 1.0)
+			assert.Equal(t, 1.0, data.value)
 		}
 	}
 }
@@ -414,7 +414,7 @@ func TestExporterCollectFail(t *testing.T) {
 		desc := metric.Desc().String()
 		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
 			data := readMetric(metric)
-			assert.Equal(t, data.value, 0.0)
+			assert.Equal(t, 0.0, data.value)
 		}
 	}
 }
