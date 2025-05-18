@@ -20,6 +20,7 @@ type MetricsCollector interface {
 	CollectControllerDetails(ch chan<- prometheus.Metric) bool
 	CollectUnitStatus(ch chan<- prometheus.Metric) bool
 	CollectDriveStatus(ch chan<- prometheus.Metric) bool
+	CollectDriveSmartData(ch chan<- prometheus.Metric) bool
 }
 
 type Collector struct {
@@ -51,6 +52,28 @@ var (
 		prometheus.BuildFQName(namespace, "drive", "status"),
 		"Drive Status",
 		[]string{"status", "unit", "size", "type", "phy", "model"}, nil,
+	)
+	driveReallocatedSectorsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "reallocated_sectors"),
+		"Drive Reallocated Sectors",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
+	)
+	drivePowerOnHoursDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "power_on_hours"),
+		"Drive Power On Hours",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
+	)
+	parseErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "drive_smart_parse_errors_total",
+			Help: "Total number of parse errors when reading SMART data fields.",
+		},
+		[]string{"field"},
+	)
+	driveTemperatureDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "temperature"),
+		"Drive Temperature",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
 	)
 	scrapeDuration = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "scrape", "collector_duration_seconds"),
@@ -110,6 +133,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ok := e.Collector.CollectControllerDetails(ch)
 	ok = e.Collector.CollectUnitStatus(ch) && ok
 	ok = e.Collector.CollectDriveStatus(ch) && ok
+	ok = e.Collector.CollectDriveSmartData(ch) && ok
 
 	if !ok {
 		success = 0
@@ -187,4 +211,51 @@ func (c *Collector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
 	}
 
 	return true
+}
+
+func (c *Collector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
+	for _, controller := range c.ControllerData {
+		for _, device := range controller.Devices {
+			switch device.Type {
+			case "SATA":
+				data, err := c.TWCli.GetSATASmartData(controller.Name, device.Name)
+				if err != nil {
+					log.Printf("Error getting SATA SMART data for %s: %v", device.Name, err)
+					return false
+				}
+				c.emitSATAMetrics(data, ch)
+			default:
+				log.Printf("Unsupported drive data type for %s", device.Name)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (c *Collector) emitSATAMetrics(data *twcli.SATASmartData, ch chan<- prometheus.Metric) {
+	status := data.Status
+	model := data.Model
+	serial := data.Serial
+	spindleSpeed := data.SpindleSpeed
+	unit := data.Unit
+
+	reallocatedSectorsFloat, ok := parseFloat(data.ReallocatedSectors, "ReallocatedSectors")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			driveReallocatedSectorsDesc, prometheus.GaugeValue, reallocatedSectorsFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
+	powerOnHoursFloat, ok := parseFloat(data.PowerOnHours, "PowerOnHours")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			drivePowerOnHoursDesc, prometheus.CounterValue, powerOnHoursFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
+	temperatureFloat, ok := parseFloat(data.Temperature, "Temperature")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			driveTemperatureDesc, prometheus.GaugeValue, temperatureFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
 }

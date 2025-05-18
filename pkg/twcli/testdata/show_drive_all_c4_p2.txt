@@ -1,0 +1,15 @@
+/c4/p2 Status = OK
+/c4/p2 Model = TOSHIBA HDWG440
+/c4/p2 Firmware Version = 0601
+/c4/p2 Serial = AC12345
+/c4/p2 Capacity = 3.63 TB (7814037168 Blocks)
+/c4/p2 Reallocated Sectors = 0
+/c4/p2 Power On Hours = 20120
+/c4/p2 Temperature = 27 deg C
+/c4/p2 Spindle Speed = 7200 RPM
+/c4/p2 Link Speed Supported = 1.5 Gbps and 3.0 Gbps
+/c4/p2 Link Speed = 3.0 Gbps
+/c4/p2 NCQ Supported = Yes
+/c4/p2 NCQ Enabled = Yes
+/c4/p2 Identify Status = N/A
+/c4/p2 Belongs to Unit = u0

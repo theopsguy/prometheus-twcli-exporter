@@ -298,8 +298,73 @@ func TestCollectDriveStatusDEGRADED(t *testing.T) {
 	}
 }
 
+func TestCollectDriveSmartData(t *testing.T) {
+	output, err := testutil.ReadTestOutputData("testdata/show_drive_all_c4_p0.txt")
+	if err != nil {
+		t.Fatalf("Error reading test data: %s", err)
+	}
+	mshell := mockShell{
+		Output: output,
+		Err:    nil,
+	}
+
+	e := mockExporter(mshell)
+	ch := make(chan prometheus.Metric, 3)
+	result := e.Collector.CollectDriveSmartData(ch)
+	close(ch)
+
+	assert.True(t, result)
+	assert.Len(t, ch, 3)
+
+	expectedMetrics := []metricResult{
+		{
+			labels: labelMap{
+				"status":        "OK",
+				"model":         "ST4000VN006-3CW104",
+				"serial":        "AA12345",
+				"spindle_speed": "5400",
+				"unit":          "u0",
+			},
+			value:      0,
+			metricType: io_prometheus_client.MetricType_GAUGE,
+		},
+		{
+			labels: labelMap{
+				"status":        "OK",
+				"model":         "ST4000VN006-3CW104",
+				"serial":        "AA12345",
+				"spindle_speed": "5400",
+				"unit":          "u0",
+			},
+			value:      2355,
+			metricType: io_prometheus_client.MetricType_COUNTER,
+		},
+		{
+			labels: labelMap{
+				"status":        "OK",
+				"model":         "ST4000VN006-3CW104",
+				"serial":        "AA12345",
+				"spindle_speed": "5400",
+				"unit":          "u0",
+			},
+			value:      31,
+			metricType: io_prometheus_client.MetricType_GAUGE,
+		},
+	}
+
+	i := 0
+	for metric := range ch {
+		data := readMetric(metric)
+		assert.Equal(t, expectedMetrics[i].labels, data.labels)
+		assert.Equal(t, expectedMetrics[i].value, data.value)
+		assert.Equal(t, expectedMetrics[i].metricType, data.metricType)
+
+		i++
+	}
+}
+
 type mockCollector struct {
-	ctrlOK, unitOK, driveOK bool
+	ctrlOK, unitOK, driveOK, smartOK bool
 }
 
 func (m *mockCollector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
@@ -314,10 +379,14 @@ func (m *mockCollector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
 	return m.driveOK
 }
 
+func (m *mockCollector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
+	return m.smartOK
+}
+
 func TestExporterCollectOK(t *testing.T) {
 	ch := make(chan prometheus.Metric, 2)
 	e := &exporter.Exporter{
-		Collector: &mockCollector{true, true, true},
+		Collector: &mockCollector{true, true, true, true},
 	}
 	e.Collect(ch)
 	close(ch)
@@ -335,7 +404,7 @@ func TestExporterCollectOK(t *testing.T) {
 func TestExporterCollectFail(t *testing.T) {
 	ch := make(chan prometheus.Metric, 2)
 	e := &exporter.Exporter{
-		Collector: &mockCollector{false, true, true},
+		Collector: &mockCollector{false, true, true, true},
 	}
 	e.Collect(ch)
 	close(ch)

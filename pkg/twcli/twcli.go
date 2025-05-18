@@ -37,6 +37,19 @@ type DriveLabels struct {
 	Model  string
 }
 
+type SATASmartData struct {
+	Controller         string
+	Device             string
+	Status             string
+	Model              string
+	Serial             string
+	Unit               string
+	ReallocatedSectors string
+	PowerOnHours       string
+	Temperature        string
+	SpindleSpeed       string
+}
+
 type CacheRecord struct {
 	ExpiresAt time.Time
 	Data      []byte
@@ -222,4 +235,47 @@ func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
 	}
 
 	return drives, nil
+}
+
+func (twcli *TWCli) GetSATASmartData(controller string, device string) (*SATASmartData, error) {
+	data := &SATASmartData{
+		Controller: controller,
+		Device:     device,
+	}
+
+	output, err := twcli.RunCommand(device, "show", "all")
+	if err != nil {
+		return data, err
+	}
+
+	fieldMap := map[string]*string{
+		"Status":              &data.Status,
+		"Model":               &data.Model,
+		"Serial":              &data.Serial,
+		"Belongs to Unit":     &data.Unit,
+		"Reallocated Sectors": &data.ReallocatedSectors,
+		"Power On Hours":      &data.PowerOnHours,
+		"Temperature":         &data.Temperature,
+		"Spindle Speed":       &data.SpindleSpeed,
+	}
+
+	for field, ptr := range fieldMap {
+		pattern := fmt.Sprintf(`(?i)%s\s+%s\s*=\s*(.*)`, regexp.QuoteMeta(device), regexp.QuoteMeta(field))
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(string(output))
+
+		if len(matches) != 2 {
+			log.Printf("Field '%s' not found for device '%s'", field, device)
+			continue
+		}
+		value := matches[1]
+
+		if field == "Temperature" || field == "Spindle Speed" {
+			value = strings.Fields(value)[0]
+		}
+
+		*ptr = value
+	}
+
+	return data, nil
 }

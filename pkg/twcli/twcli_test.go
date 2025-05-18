@@ -184,3 +184,50 @@ func TestGetDriveStatusDEGRADED(t *testing.T) {
 	assert.Nil(t, err, "unexpected error: %v", err)
 	assert.Equal(t, drives, expectedOutput)
 }
+
+type deviceTestData struct {
+	Device         string
+	TestDataFile   string
+	ExpectedOutput *twcli.SATASmartData
+}
+
+func TestGetSATASmartData(t *testing.T) {
+	devices := []deviceTestData{
+		{
+			Device:         "/c4/p0",
+			TestDataFile:   "testdata/show_drive_all_c4_p0.txt",
+			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p0", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AA12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2355", Temperature: "31", SpindleSpeed: "5400"},
+		},
+		{
+			Device:         "/c4/p1",
+			TestDataFile:   "testdata/show_drive_all_c4_p1.txt",
+			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p1", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AB12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2453", Temperature: "31", SpindleSpeed: "5400"},
+		},
+		{
+			Device:         "/c4/p2",
+			TestDataFile:   "testdata/show_drive_all_c4_p2.txt",
+			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p2", Status: "OK", Model: "TOSHIBA HDWG440", Serial: "AC12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "20120", Temperature: "27", SpindleSpeed: "7200"},
+		},
+		{
+			Device:         "/c4/p3",
+			TestDataFile:   "testdata/show_drive_all_c4_p3.txt",
+			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p3", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AD12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2349", Temperature: "31", SpindleSpeed: "5400"},
+		},
+	}
+
+	for _, d := range devices {
+		testdata, err := testutil.ReadTestOutputData(d.TestDataFile)
+		if err != nil {
+			t.Fatalf("Error reading test data: %s", err)
+		}
+
+		mshell := MockShell{
+			Output: testdata,
+			Err:    nil,
+		}
+
+		twcli := mockTWCli(mshell)
+		labels, _ := twcli.GetSATASmartData("/c4", d.Device)
+		assert.Equal(t, d.ExpectedOutput, labels)
+	}
+}
