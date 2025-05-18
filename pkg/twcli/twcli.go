@@ -18,6 +18,16 @@ type TWCli struct {
 	CacheDuration int
 }
 
+type ControllerInfo struct {
+	Name    string
+	Devices []Device
+}
+
+type Device struct {
+	Name string
+	Type string
+}
+
 type DriveLabels struct {
 	Status string
 	Unit   string
@@ -25,6 +35,19 @@ type DriveLabels struct {
 	Type   string
 	Phy    string
 	Model  string
+}
+
+type SATASmartData struct {
+	Controller         string
+	Device             string
+	Status             string
+	Model              string
+	Serial             string
+	Unit               string
+	ReallocatedSectors string
+	PowerOnHours       string
+	Temperature        string
+	SpindleSpeed       string
 }
 
 type CacheRecord struct {
@@ -79,6 +102,28 @@ func (twcli *TWCli) GetControllers() ([]string, error) {
 	}
 
 	return controllers, nil
+}
+
+func (twcli *TWCli) GetDevices(controller string) ([]Device, error) {
+	var devices []Device
+	re := regexp.MustCompile(`^\s*phy\d+\s+-\s+(\S+)\s+(\S+)`)
+
+	output, err := twcli.RunCommand(controller, "show", "phy")
+	if err != nil {
+		return devices, err
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		matches := re.FindStringSubmatch(line)
+		if len(matches) == 3 {
+			devices = append(devices, Device{
+				Type: matches[1],
+				Name: matches[2],
+			})
+		}
+	}
+
+	return devices, nil
 }
 
 func (twcli *TWCli) GetControllerInfo(controller string) ([]string, error) {
@@ -190,4 +235,47 @@ func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
 	}
 
 	return drives, nil
+}
+
+func (twcli *TWCli) GetSATASmartData(controller string, device string) (*SATASmartData, error) {
+	data := &SATASmartData{
+		Controller: controller,
+		Device:     device,
+	}
+
+	output, err := twcli.RunCommand(device, "show", "all")
+	if err != nil {
+		return data, err
+	}
+
+	fieldMap := map[string]*string{
+		"Status":              &data.Status,
+		"Model":               &data.Model,
+		"Serial":              &data.Serial,
+		"Belongs to Unit":     &data.Unit,
+		"Reallocated Sectors": &data.ReallocatedSectors,
+		"Power On Hours":      &data.PowerOnHours,
+		"Temperature":         &data.Temperature,
+		"Spindle Speed":       &data.SpindleSpeed,
+	}
+
+	for field, ptr := range fieldMap {
+		pattern := fmt.Sprintf(`(?i)%s\s+%s\s*=\s*(.*)`, regexp.QuoteMeta(device), regexp.QuoteMeta(field))
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(string(output))
+
+		if len(matches) != 2 {
+			log.Printf("Field '%s' not found for device '%s'", field, device)
+			continue
+		}
+		value := matches[1]
+
+		if field == "Temperature" || field == "Spindle Speed" {
+			value = strings.Fields(value)[0]
+		}
+
+		*ptr = value
+	}
+
+	return data, nil
 }

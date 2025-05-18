@@ -20,11 +20,12 @@ type MetricsCollector interface {
 	CollectControllerDetails(ch chan<- prometheus.Metric) bool
 	CollectUnitStatus(ch chan<- prometheus.Metric) bool
 	CollectDriveStatus(ch chan<- prometheus.Metric) bool
+	CollectDriveSmartData(ch chan<- prometheus.Metric) bool
 }
 
 type Collector struct {
-	Controllers []string
-	TWCli       twcli.TWCli
+	ControllerData []twcli.ControllerInfo
+	TWCli          twcli.TWCli
 }
 
 type Exporter struct {
@@ -52,6 +53,28 @@ var (
 		"Drive Status",
 		[]string{"status", "unit", "size", "type", "phy", "model"}, nil,
 	)
+	driveReallocatedSectorsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "reallocated_sectors"),
+		"Drive Reallocated Sectors",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
+	)
+	drivePowerOnHoursDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "power_on_hours"),
+		"Drive Power On Hours",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
+	)
+	parseErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "drive_smart_parse_errors_total",
+			Help: "Total number of parse errors when reading SMART data fields.",
+		},
+		[]string{"field"},
+	)
+	driveTemperatureDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "drive", "temperature"),
+		"Drive Temperature",
+		[]string{"status", "model", "serial", "spindle_speed", "unit"}, nil,
+	)
 	scrapeDuration = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "scrape", "collector_duration_seconds"),
 		"Number of seconds taken to scrape metrics",
@@ -66,16 +89,31 @@ var (
 
 func New(cfg config.Config) (*Exporter, error) {
 	shell := shell.LocalShell{}
-	twcli := twcli.New(cfg.CacheDuration, cfg.Executable, shell)
-	controllers, err := twcli.GetControllers()
+	t := twcli.New(cfg.CacheDuration, cfg.Executable, shell)
+
+	controllers, err := t.GetControllers()
 	if err != nil {
 		log.Fatal("Error querying controllers")
 		os.Exit(1)
 	}
 
+	var controllerData []twcli.ControllerInfo
+
+	for _, controller := range controllers {
+		devices, err := t.GetDevices(controller)
+		if err != nil {
+			log.Fatalf("Error getting devices for controller %s: %v", controller, err)
+		}
+		controllerData = append(controllerData, twcli.ControllerInfo{
+			Name:    controller,
+			Devices: devices,
+		})
+
+	}
+
 	collector := &Collector{
-		Controllers: controllers,
-		TWCli:       *twcli,
+		ControllerData: controllerData,
+		TWCli:          *t,
 	}
 
 	return &Exporter{
@@ -95,6 +133,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ok := e.Collector.CollectControllerDetails(ch)
 	ok = e.Collector.CollectUnitStatus(ch) && ok
 	ok = e.Collector.CollectDriveStatus(ch) && ok
+	ok = e.Collector.CollectDriveSmartData(ch) && ok
 
 	if !ok {
 		success = 0
@@ -108,8 +147,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func (c *Collector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
 
-	for _, controller := range c.Controllers {
-		labels, err := c.TWCli.GetControllerInfo(controller)
+	for _, controllerData := range c.ControllerData {
+		labels, err := c.TWCli.GetControllerInfo(controllerData.Name)
 		if err != nil {
 			return false
 		}
@@ -127,8 +166,8 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 	percentStates := []string{"VERIFYING", "REBUILDING"}
 	var statusGaugeValue float64 = 0
 
-	for _, controller := range c.Controllers {
-		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controller)
+	for _, controllerData := range c.ControllerData {
+		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controllerData.Name)
 		if err != nil {
 			return false
 		}
@@ -138,12 +177,12 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 		}
 
 		ch <- prometheus.MustNewConstMetric(
-			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controller, unit, unitType, unitStatus,
+			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controllerData.Name, unit, unitType, unitStatus,
 		)
 
 		if slices.Contains(percentStates, unitStatus) {
 			ch <- prometheus.MustNewConstMetric(
-				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controller, unit, unitStatus,
+				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controllerData.Name, unit, unitStatus,
 			)
 		}
 	}
@@ -152,8 +191,8 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 }
 
 func (c *Collector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
-	for _, controller := range c.Controllers {
-		drives, err := c.TWCli.GetDriveStatus(controller)
+	for _, controllerData := range c.ControllerData {
+		drives, err := c.TWCli.GetDriveStatus(controllerData.Name)
 		if err != nil {
 			return false
 		}
@@ -172,4 +211,51 @@ func (c *Collector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
 	}
 
 	return true
+}
+
+func (c *Collector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
+	for _, controller := range c.ControllerData {
+		for _, device := range controller.Devices {
+			switch device.Type {
+			case "SATA":
+				data, err := c.TWCli.GetSATASmartData(controller.Name, device.Name)
+				if err != nil {
+					log.Printf("Error getting SATA SMART data for %s: %v", device.Name, err)
+					return false
+				}
+				c.emitSATAMetrics(data, ch)
+			default:
+				log.Printf("Unsupported drive data type for %s", device.Name)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (c *Collector) emitSATAMetrics(data *twcli.SATASmartData, ch chan<- prometheus.Metric) {
+	status := data.Status
+	model := data.Model
+	serial := data.Serial
+	spindleSpeed := data.SpindleSpeed
+	unit := data.Unit
+
+	reallocatedSectorsFloat, ok := parseFloat(data.ReallocatedSectors, "ReallocatedSectors")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			driveReallocatedSectorsDesc, prometheus.GaugeValue, reallocatedSectorsFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
+	powerOnHoursFloat, ok := parseFloat(data.PowerOnHours, "PowerOnHours")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			drivePowerOnHoursDesc, prometheus.CounterValue, powerOnHoursFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
+	temperatureFloat, ok := parseFloat(data.Temperature, "Temperature")
+	if ok {
+		ch <- prometheus.MustNewConstMetric(
+			driveTemperatureDesc, prometheus.GaugeValue, temperatureFloat, status, model, serial, spindleSpeed, unit,
+		)
+	}
 }
