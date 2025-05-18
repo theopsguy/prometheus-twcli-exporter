@@ -23,8 +23,8 @@ type MetricsCollector interface {
 }
 
 type Collector struct {
-	Controllers []string
-	TWCli       twcli.TWCli
+	ControllerData []twcli.ControllerInfo
+	TWCli          twcli.TWCli
 }
 
 type Exporter struct {
@@ -66,16 +66,31 @@ var (
 
 func New(cfg config.Config) (*Exporter, error) {
 	shell := shell.LocalShell{}
-	twcli := twcli.New(cfg.CacheDuration, cfg.Executable, shell)
-	controllers, err := twcli.GetControllers()
+	t := twcli.New(cfg.CacheDuration, cfg.Executable, shell)
+
+	controllers, err := t.GetControllers()
 	if err != nil {
 		log.Fatal("Error querying controllers")
 		os.Exit(1)
 	}
 
+	var controllerData []twcli.ControllerInfo
+
+	for _, controller := range controllers {
+		devices, err := t.GetDevices(controller)
+		if err != nil {
+			log.Fatalf("Error getting devices for controller %s: %v", controller, err)
+		}
+		controllerData = append(controllerData, twcli.ControllerInfo{
+			Name:    controller,
+			Devices: devices,
+		})
+
+	}
+
 	collector := &Collector{
-		Controllers: controllers,
-		TWCli:       *twcli,
+		ControllerData: controllerData,
+		TWCli:          *t,
 	}
 
 	return &Exporter{
@@ -108,8 +123,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func (c *Collector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
 
-	for _, controller := range c.Controllers {
-		labels, err := c.TWCli.GetControllerInfo(controller)
+	for _, controllerData := range c.ControllerData {
+		labels, err := c.TWCli.GetControllerInfo(controllerData.Name)
 		if err != nil {
 			return false
 		}
@@ -127,8 +142,8 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 	percentStates := []string{"VERIFYING", "REBUILDING"}
 	var statusGaugeValue float64 = 0
 
-	for _, controller := range c.Controllers {
-		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controller)
+	for _, controllerData := range c.ControllerData {
+		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controllerData.Name)
 		if err != nil {
 			return false
 		}
@@ -138,12 +153,12 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 		}
 
 		ch <- prometheus.MustNewConstMetric(
-			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controller, unit, unitType, unitStatus,
+			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controllerData.Name, unit, unitType, unitStatus,
 		)
 
 		if slices.Contains(percentStates, unitStatus) {
 			ch <- prometheus.MustNewConstMetric(
-				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controller, unit, unitStatus,
+				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controllerData.Name, unit, unitStatus,
 			)
 		}
 	}
@@ -152,8 +167,8 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 }
 
 func (c *Collector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
-	for _, controller := range c.Controllers {
-		drives, err := c.TWCli.GetDriveStatus(controller)
+	for _, controllerData := range c.ControllerData {
+		drives, err := c.TWCli.GetDriveStatus(controllerData.Name)
 		if err != nil {
 			return false
 		}

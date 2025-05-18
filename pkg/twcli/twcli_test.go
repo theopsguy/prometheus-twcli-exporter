@@ -43,6 +43,29 @@ func TestGetControllers(t *testing.T) {
 	assert.Equal(t, output, []string{"/c4"})
 }
 
+func TestGetDevices(t *testing.T) {
+	testdata, err := testutil.ReadTestOutputData("testdata/show_phy.txt")
+	if err != nil {
+		t.Fatalf("Error reading test data: %s", err)
+	}
+	mshell := MockShell{
+		Output: testdata,
+		Err:    nil,
+	}
+
+	expectedOutput := []twcli.Device{
+		{Name: "/c4/p0", Type: "SATA"},
+		{Name: "/c4/p1", Type: "SATA"},
+		{Name: "/c4/p2", Type: "SATA"},
+		{Name: "/c4/p3", Type: "SATA"},
+	}
+
+	twcli := mockTWCli(mshell)
+	output, err := twcli.GetDevices("/c4")
+	assert.Nil(t, err, "unexpected error: %v", err)
+	assert.Equal(t, output, expectedOutput)
+}
+
 func TestGetControllerInfo(t *testing.T) {
 	testdata, err := testutil.ReadTestOutputData("testdata/show_all.txt")
 	if err != nil {

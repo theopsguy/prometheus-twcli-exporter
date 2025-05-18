@@ -1,0 +1,8 @@
+
+                             Device              --- Link Speed (Gbps) ---
+Phy     SAS Address          Type     Device     Supported  Enabled  Control
+-----------------------------------------------------------------------------
+phy0    -                    SATA     /c4/p0     1.5-3.0    3.0      Auto
+phy1    -                    SATA     /c4/p1     1.5-3.0    3.0      Auto
+phy2    -                    SATA     /c4/p2     1.5-3.0    3.0      Auto
+phy3    -                    SATA     /c4/p3     1.5-3.0    3.0      Auto

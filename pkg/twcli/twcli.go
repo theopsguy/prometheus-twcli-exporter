@@ -18,6 +18,16 @@ type TWCli struct {
 	CacheDuration int
 }
 
+type ControllerInfo struct {
+	Name    string
+	Devices []Device
+}
+
+type Device struct {
+	Name string
+	Type string
+}
+
 type DriveLabels struct {
 	Status string
 	Unit   string
@@ -79,6 +89,28 @@ func (twcli *TWCli) GetControllers() ([]string, error) {
 	}
 
 	return controllers, nil
+}
+
+func (twcli *TWCli) GetDevices(controller string) ([]Device, error) {
+	var devices []Device
+	re := regexp.MustCompile(`^\s*phy\d+\s+-\s+(\S+)\s+(\S+)`)
+
+	output, err := twcli.RunCommand(controller, "show", "phy")
+	if err != nil {
+		return devices, err
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		matches := re.FindStringSubmatch(line)
+		if len(matches) == 3 {
+			devices = append(devices, Device{
+				Type: matches[1],
+				Name: matches[2],
+			})
+		}
+	}
+
+	return devices, nil
 }
 
 func (twcli *TWCli) GetControllerInfo(controller string) ([]string, error) {
