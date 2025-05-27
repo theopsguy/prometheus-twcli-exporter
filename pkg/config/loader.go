@@ -15,11 +15,17 @@ type Config struct {
 	Listen        ListenConfig
 	CacheDuration int
 	Executable    string
+	Log           LogConfig
 }
 
 type ListenConfig struct {
 	Port    int
 	Address string
+}
+
+type LogConfig struct {
+	Level  string
+	Format string
 }
 
 func LoadConfigFromFile(config *Config, filename string) error {

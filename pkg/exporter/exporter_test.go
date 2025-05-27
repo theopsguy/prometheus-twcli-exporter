@@ -98,7 +98,7 @@ func TestNewExporterExecNotFound(t *testing.T) {
 	err := cmd.Run()
 
 	assert.Equal(t, err.Error(), "exit status 1")
-	assert.Contains(t, stderr.String(), "Error running command: fork/exec /usr/sbin/tw-cli: no such file or directory")
+	assert.Contains(t, stderr.String(), "Error running command error=\"fork/exec /usr/sbin/tw-cli: no such file or directory\"")
 }
 
 func TestCollectControllerDetails(t *testing.T) {

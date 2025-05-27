@@ -2,7 +2,7 @@ package twcli
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -77,7 +77,7 @@ func (twcli *TWCli) RunCommand(args ...string) ([]byte, error) {
 	output, err := twcli.Shell.Execute(twcli.Cmd, args...)
 
 	if err != nil {
-		log.Printf("Error running command: %s\n", err)
+		slog.Error("Error running command", "error", err)
 		return output, err
 	}
 
@@ -265,7 +265,7 @@ func (twcli *TWCli) GetSATASmartData(controller string, device string) (*SATASma
 		matches := re.FindStringSubmatch(string(output))
 
 		if len(matches) != 2 {
-			log.Printf("Field '%s' not found for device '%s'", field, device)
+			slog.Warn("Field not found", "field", field, "device", device)
 			continue
 		}
 		value := matches[1]
