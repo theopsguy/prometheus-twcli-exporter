@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -38,15 +38,19 @@ func main() {
 			Address: "0.0.0.0",
 			Port:    9400,
 		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
 	}
 	loadConfig(&opts, &cfg)
+	setupLogger(&cfg)
 
 	listenAddr := fmt.Sprintf("%s:%d", cfg.Listen.Address, cfg.Listen.Port)
-	log.Printf("Running HTTP server on address %s\n", listenAddr)
-
+	slog.Info("Starting twcli_exporter", "version", version.Info())
 	twcliExporter, err := exporter.New(cfg)
 	if err != nil {
-		log.Fatal("Error creating the exporter")
+		slog.Error("Error creating exporter", "error", err)
 		os.Exit(1)
 	}
 
@@ -80,15 +84,46 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	})
-	log.Fatal(http.ListenAndServe(listenAddr, nil))
+	err = http.ListenAndServe(listenAddr, nil)
+	if err != nil {
+		slog.Error("Server failed to start", "addr", listenAddr, "error", err)
+	}
+}
+
+func setupLogger(cfg *config.Config) {
+	var handler slog.Handler
+	level := new(slog.LevelVar)
+	switch cfg.Log.Format {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	case "text":
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	default:
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+
+	}
+
+	switch cfg.Log.Level {
+	case "debug":
+		level.Set(slog.LevelDebug)
+	case "info":
+		level.Set(slog.LevelInfo)
+	case "warn":
+		level.Set(slog.LevelWarn)
+	case "error":
+		level.Set(slog.LevelError)
+	}
+
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 }
 
 func loadConfig(opts *config.StartupFlags, cfg *config.Config) {
 	if opts.ConfigFile != "" {
-		log.Printf("Loading configuration file: %s\n", opts.ConfigFile)
+		slog.Info("Loading configuration", "config_file", opts.ConfigFile)
 		err := config.LoadConfigFromFile(cfg, opts.ConfigFile)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("Error loading configuration", "file", opts.ConfigFile, "error", err)
 		}
 	}
 }

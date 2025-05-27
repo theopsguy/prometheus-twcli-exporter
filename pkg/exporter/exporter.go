@@ -1,7 +1,7 @@
 package exporter
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"slices"
 	"time"
@@ -93,7 +93,7 @@ func New(cfg config.Config) (*Exporter, error) {
 
 	controllers, err := t.GetControllers()
 	if err != nil {
-		log.Fatal("Error querying controllers")
+		slog.Error("Error querying controllers", "error", err)
 		os.Exit(1)
 	}
 
@@ -102,7 +102,7 @@ func New(cfg config.Config) (*Exporter, error) {
 	for _, controller := range controllers {
 		devices, err := t.GetDevices(controller)
 		if err != nil {
-			log.Fatalf("Error getting devices for controller %s: %v", controller, err)
+			slog.Error("Error getting devices", "controller", controller, "error", err)
 		}
 		controllerData = append(controllerData, twcli.ControllerInfo{
 			Name:    controller,
@@ -220,12 +220,12 @@ func (c *Collector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
 			case "SATA":
 				data, err := c.TWCli.GetSATASmartData(controller.Name, device.Name)
 				if err != nil {
-					log.Printf("Error getting SATA SMART data for %s: %v", device.Name, err)
+					slog.Error("Error getting SATA SMART data", "device", device.Name, "error", err)
 					return false
 				}
 				c.emitSATAMetrics(data, ch)
 			default:
-				log.Printf("Unsupported drive data type for %s", device.Name)
+				slog.Warn("Unsupported drive data type", "device", device.Name, "type", device.Type)
 				return false
 			}
 		}
