@@ -13,6 +13,7 @@ import (
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
+	"github.com/prometheus/exporter-toolkit/web"
 )
 
 const (
@@ -23,6 +24,7 @@ func main() {
 	var opts config.StartupFlags
 
 	flag.StringVar(&opts.ConfigFile, "config-file", "", "Configuration file to read from")
+	flag.StringVar(&opts.WebConfigFile, "web-config-file", "", "Use to enable TLS, HTTP Basic Auth")
 	flag.BoolVar(&opts.Version, "version", false, "Print version information")
 	flag.Parse()
 
@@ -42,11 +44,11 @@ func main() {
 			Level:  "info",
 			Format: "text",
 		},
+		MetricsPath: "/metrics",
 	}
 	loadConfig(&opts, &cfg)
-	setupLogger(&cfg)
+	logger := setupLogger(&cfg)
 
-	listenAddr := fmt.Sprintf("%s:%d", cfg.Listen.Address, cfg.Listen.Port)
 	slog.Info("Starting twcli_exporter", "version", version.Info())
 	twcliExporter, err := exporter.New(cfg)
 	if err != nil {
@@ -59,45 +61,45 @@ func main() {
 		twcliExporter,
 	)
 
-	http.Handle("/metrics",
-		promhttp.InstrumentMetricHandler(
-			prometheus.DefaultRegisterer,
-			promhttp.HandlerFor(
-				prometheus.DefaultGatherer,
-				promhttp.HandlerOpts{},
-			),
-		),
-	)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-             <head><title>tw-cli Exporter</title></head>
-             <body>
-             <h1>tw-cli Exporter</h1>
-             <p><a href='/metrics'>Metrics</a></p>
-             </dl>
-             <h2>Build</h2>
-             <pre>` + version.Info() + ` ` + version.BuildContext() + `</pre>
-             </body>
-             </html>`))
-	})
-	http.HandleFunc("/healthy", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
-	})
-	err = http.ListenAndServe(listenAddr, nil)
-	if err != nil {
-		slog.Error("Server failed to start", "addr", listenAddr, "error", err)
+	http.Handle(cfg.MetricsPath, promhttp.Handler())
+	if cfg.MetricsPath != "/" {
+		landingConfig := web.LandingConfig{
+			Name:        "TWCLI Exporter",
+			Description: "Prometheus exporter for 3ware RAID cards.",
+			Version:     version.Info(),
+			Links: []web.LandingLinks{
+				{
+					Address: cfg.MetricsPath,
+					Text:    "Metrics",
+				},
+			},
+		}
+		landingPage, err := web.NewLandingPage(landingConfig)
+		if err != nil {
+			slog.Error("Error creating landing page", "error", err)
+			os.Exit(1)
+		}
+		http.Handle("/", landingPage)
+	}
+
+	listenAddr := fmt.Sprintf("%s:%d", cfg.Listen.Address, cfg.Listen.Port)
+	flags := web.FlagConfig{
+		WebListenAddresses: &[]string{listenAddr},
+		WebConfigFile:      &opts.WebConfigFile,
+	}
+	server := &http.Server{}
+	if err := web.ListenAndServe(server, &flags, logger); err != nil {
+		slog.Error("Server failed to start", "error", err)
+		os.Exit(1)
 	}
 }
 
-func setupLogger(cfg *config.Config) {
+func setupLogger(cfg *config.Config) *slog.Logger {
 	var handler slog.Handler
 	level := new(slog.LevelVar)
 	switch cfg.Log.Format {
 	case "json":
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	case "text":
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
 	default:
 		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
 
@@ -112,10 +114,13 @@ func setupLogger(cfg *config.Config) {
 		level.Set(slog.LevelWarn)
 	case "error":
 		level.Set(slog.LevelError)
+	default:
+		level.Set(slog.LevelInfo)
 	}
 
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+	return logger
 }
 
 func loadConfig(opts *config.StartupFlags, cfg *config.Config) {

@@ -7,8 +7,9 @@ import (
 )
 
 type StartupFlags struct {
-	ConfigFile string
-	Version    bool
+	ConfigFile    string
+	WebConfigFile string
+	Version       bool
 }
 
 type Config struct {
@@ -16,6 +17,7 @@ type Config struct {
 	CacheDuration int
 	Executable    string
 	Log           LogConfig
+	MetricsPath   string
 }
 
 type ListenConfig struct {
