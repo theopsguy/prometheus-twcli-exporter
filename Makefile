@@ -16,6 +16,14 @@ PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_
 PROMU := $(FIRST_GOPATH)/bin/promu
 
 .PHONY:fmt vet build tarball clean test promu
+GOLANGCI_LINT_OPTS ?=
+GOLANGCI_LINT_VERSION ?= v2.4.0
+GOLANGCI_LINT_URL := https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh
+GOLANGCI_LINT := $(FIRST_GOPATH)/bin/golangci-lint
+
+lint: golangci-lint
+	@echo "Running golangci-lint..."
+	$(GOLANGCI_LINT) run --timeout=5m
 
 fmt:
 	$(GO) fmt ./...
@@ -43,3 +51,16 @@ promu:
 	cp $(PROMU_TMP)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu $(FIRST_GOPATH)/bin/promu
 	rm -r $(PROMU_TMP)
 
+golangci-lint:
+	@if [ ! -f $(GOLANGCI_LINT) ]; then \
+		echo "Downloading golangci-lint..."; \
+		curl -sfL $(GOLANGCI_LINT_URL) \
+		| sed -e '/install -d/d' \
+		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
+		if [ ! -f $(GOLANGCI_LINT) ]; then \
+			echo "Failed to download golangci-lint"; \
+			exit 1; \
+		else \
+			echo "golangci-lint downloaded to $(GOLANGCI_LINT)"; \
+		fi; \
+	fi
