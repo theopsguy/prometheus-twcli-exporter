@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/config"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/exporter"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/config"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/exporter"
 )
 
 const (

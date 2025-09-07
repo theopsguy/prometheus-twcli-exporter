@@ -3,9 +3,9 @@ package twcli_test
 import (
 	"testing"
 
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/internal/testutil"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/twcli"
 	"github.com/stretchr/testify/assert"
+	"github.com/theopsguy/prometheus-twcli-exporter/internal/testutil"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
 )
 
 type MockShell struct {

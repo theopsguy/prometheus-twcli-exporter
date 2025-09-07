@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/internal/testutil"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/config"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/exporter"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/twcli"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/theopsguy/prometheus-twcli-exporter/internal/testutil"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/config"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/exporter"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
 )
 
 type labelMap map[string]string

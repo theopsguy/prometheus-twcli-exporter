@@ -1,4 +1,4 @@
-module github.com/pritpal-sabharwal/prometheus-twcli-exporter
+module github.com/theopsguy/prometheus-twcli-exporter
 
 go 1.24.1
 
