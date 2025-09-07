@@ -6,10 +6,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/config"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/shell"
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/twcli"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/config"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/shell"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
 )
 
 const (

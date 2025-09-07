@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pritpal-sabharwal/prometheus-twcli-exporter/pkg/shell"
+	"github.com/theopsguy/prometheus-twcli-exporter/pkg/shell"
 )
 
 type TWCli struct {
