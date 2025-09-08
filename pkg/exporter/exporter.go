@@ -82,7 +82,7 @@ var (
 	)
 	scrapeSuccess = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "scrape", "collector_success"),
-		"Indicates if any failures occured during scrape",
+		"Indicates if any failures occurred during scrape",
 		[]string{}, nil,
 	)
 )
