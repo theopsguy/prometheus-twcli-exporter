@@ -1,21 +1,26 @@
+.PHONY: build check clean crossbuild crossbuild-tarballs golangci-lint lint promu release tarball test
+
 .DEFAULT_GOAL := build
 
 PROJECTNAME ?= prometheus-twcli-exporter
 
-GO           ?= go
-PREFIX       ?= $(shell pwd)
-BIN_DIR      ?= $(shell pwd)
-VERSION      := $(shell cat VERSION)
+PREFIX ?= $(shell pwd)
+BIN_DIR ?= $(shell pwd)
+
+GO ?= go
+GOHOSTOS ?= $(shell $(GO) env GOHOSTOS)
+GOHOSTARCH ?= $(shell $(GO) env GOHOSTARCH)
+GO_BUILD_PLATFORM ?= $(GOHOSTOS)-$(GOHOSTARCH)
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
 
-GO_BUILD_PLATFORM ?= linux-amd64
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+REVISION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
 PROMU_VERSION ?= 0.17.0
-PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
-
+PROMU_URL := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
 PROMU := $(FIRST_GOPATH)/bin/promu
 
-.PHONY:fmt vet build tarball clean test promu
 GOLANGCI_LINT_OPTS ?=
 GOLANGCI_LINT_VERSION ?= v2.4.0
 GOLANGCI_LINT_URL := https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh
@@ -25,31 +30,50 @@ lint: golangci-lint
 	@echo "Running golangci-lint..."
 	$(GOLANGCI_LINT) run --timeout=5m
 
-fmt:
-	$(GO) fmt ./...
-vet: fmt
-	$(GO) vet ./...
-build: vet promu
+build: promu
 	$(PROMU) build --prefix $(PREFIX)
+
 tarball:
 	$(PROMU) tarball --prefix $(PREFIX) $(BIN_DIR)
-crossbuild: vet promu
+
+crossbuild: promu
 	$(PROMU) crossbuild
+
 crossbuild-tarballs: crossbuild
 	$(PROMU) crossbuild tarballs
+
 release: crossbuild-tarballs
 	$(PROMU) release .tarballs
-clean:
-	$(GO) clean
-	rm $(PROJECTNAME)-$(VERSION).$(GO_BUILD_PLATFORM).tar.gz
+
+clean: ## Clean build artifacts and temporary files
+	@echo "Cleaning build artifacts..."
+	$(GO) clean -i ./...
+	rm -rf .build/
+	rm -rf .tarballs/
+	rm -f $(PROJECTNAME)
+	rm -f $(PROJECTNAME)-*.tar.gz
+
 test:
-	$(GO) test -json -v ./... | go tool gotestfmt
+	$(GO) test -timeout 5m -json -v ./... | go tool gotestfmt
+
+check: lint test
+
 promu:
-	$(eval PROMU_TMP := $(shell mktemp -d))
-	curl -s -L $(PROMU_URL) | tar -xvzf - -C $(PROMU_TMP)
-	mkdir -p $(FIRST_GOPATH)/bin
-	cp $(PROMU_TMP)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu $(FIRST_GOPATH)/bin/promu
-	rm -r $(PROMU_TMP)
+	@if [ ! -f $(PROMU) ]; then \
+		echo "Downloading promu..."; \
+		PROMU_TMP=$$(mktemp -d); \
+		if curl -fsSL $(PROMU_URL) | tar -xz -C "$$PROMU_TMP"; then \
+			mkdir -p "$(FIRST_GOPATH)/bin"; \
+			cp "$$PROMU_TMP/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu" "$(FIRST_GOPATH)/bin/promu"; \
+			chmod +x "$(PROMU)"; \
+			rm -r "$$PROMU_TMP"; \
+			echo "promu downloaded to $(FIRST_GOPATH)/bin/promu"; \
+		else \
+			echo "Failed to download promu"; \
+			rm -r "$$PROMU_TMP"; \
+			exit 1; \
+		fi; \
+	fi
 
 golangci-lint:
 	@if [ ! -f $(GOLANGCI_LINT) ]; then \
