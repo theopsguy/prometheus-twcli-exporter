@@ -39,15 +39,15 @@ func (t *mockShell) Execute(cmd string, args ...string) ([]byte, error) {
 func mockExporter(shell mockShell) exporter.Exporter {
 	var cacheMap = make(map[string]twcli.CacheRecord)
 	cli := twcli.TWCli{CacheDuration: 1, Cmd: "/fake/tw-cli", Cache: cacheMap, Shell: &shell}
-	var controllerData []twcli.ControllerInfo
-	controllerData = append(controllerData, twcli.ControllerInfo{
+	var controllerInventory []twcli.ControllerInventory
+	controllerInventory = append(controllerInventory, twcli.ControllerInventory{
 		Name: "/c4",
 		Devices: []twcli.Device{
 			{Name: "/c4/p0", Type: "SATA"},
 		},
 	})
 
-	collector := exporter.Collector{ControllerData: controllerData, TWCli: cli}
+	collector := exporter.Collector{ControllerInventory: controllerInventory, TWCli: &cli}
 	exporter := exporter.Exporter{Collector: &collector}
 
 	return exporter
