@@ -76,10 +76,18 @@ func TestGetControllerInfo(t *testing.T) {
 		Err:    nil,
 	}
 
-	twcli := mockTWCli(mshell)
-	output, err := twcli.GetControllerInfo("/c4")
+	mock := mockTWCli(mshell)
+	output, err := mock.GetControllerInfo("/c4")
 	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, []string{"/c4", "9650SE-4LPML", "234881024", "FE9X 4.10.00.027", "BE9X 4.08.00.004", "L1234568912345"}, output)
+	expected := twcli.ControllerInfo{
+		Controller:      "/c4",
+		AvailableMemory: "234881024",
+		BiosVersion:     "BE9X 4.08.00.004",
+		FirmwareVersion: "FE9X 4.10.00.027",
+		Model:           "9650SE-4LPML",
+		SerialNumber:    "L1234568912345",
+	}
+	assert.Equal(t, expected, output)
 }
 
 func TestGetUnitStatusOK(t *testing.T) {

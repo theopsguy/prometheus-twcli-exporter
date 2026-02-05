@@ -17,7 +17,7 @@ const (
 )
 
 type MetricsCollector interface {
-	CollectControllerDetails(ch chan<- prometheus.Metric) bool
+	CollectControllerInfo(ch chan<- prometheus.Metric) bool
 	CollectUnitStatus(ch chan<- prometheus.Metric) bool
 	CollectDriveStatus(ch chan<- prometheus.Metric) bool
 	CollectDriveSmartData(ch chan<- prometheus.Metric) bool
@@ -130,7 +130,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
 	var success float64 = 1
 
-	ok := e.Collector.CollectControllerDetails(ch)
+	ok := e.Collector.CollectControllerInfo(ch)
 	ok = e.Collector.CollectUnitStatus(ch) && ok
 	ok = e.Collector.CollectDriveStatus(ch) && ok
 	ok = e.Collector.CollectDriveSmartData(ch) && ok
@@ -145,17 +145,25 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 }
 
-func (c *Collector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
+func (c *Collector) CollectControllerInfo(ch chan<- prometheus.Metric) bool {
 
 	for _, controllerInventory := range c.ControllerInventory {
-		labels, err := c.TWCli.GetControllerInfo(controllerInventory.Name)
+		info, err := c.TWCli.GetControllerInfo(controllerInventory.Name)
 		if err != nil {
 			slog.Error("Error getting controller info", "controller", controllerInventory.Name, "error", err)
 			return false
 		}
 
 		ch <- prometheus.MustNewConstMetric(
-			controllerInfo, prometheus.GaugeValue, 1.0, labels...,
+			controllerInfo,
+			prometheus.GaugeValue,
+			1.0,
+			info.Controller,
+			info.Model,
+			info.AvailableMemory,
+			info.FirmwareVersion,
+			info.BiosVersion,
+			info.SerialNumber,
 		)
 	}
 
