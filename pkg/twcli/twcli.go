@@ -18,7 +18,7 @@ type TWCli struct {
 	CacheDuration int
 }
 
-type ControllerInfo struct {
+type ControllerInventory struct {
 	Name    string
 	Devices []Device
 }
