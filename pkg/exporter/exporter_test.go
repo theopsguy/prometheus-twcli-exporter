@@ -101,7 +101,7 @@ func TestNewExporterExecNotFound(t *testing.T) {
 	assert.Contains(t, stderr.String(), "Error running command error=\"fork/exec /usr/sbin/tw-cli: no such file or directory\"")
 }
 
-func TestCollectControllerDetails(t *testing.T) {
+func TestCollectControllerInfo(t *testing.T) {
 	output, err := testutil.ReadTestOutputData("testdata/show_all.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
@@ -113,7 +113,7 @@ func TestCollectControllerDetails(t *testing.T) {
 
 	e := mockExporter(mshell)
 	ch := make(chan prometheus.Metric, 1)
-	result := e.Collector.CollectControllerDetails(ch)
+	result := e.Collector.CollectControllerInfo(ch)
 	close(ch)
 
 	assert.True(t, result)
@@ -367,7 +367,7 @@ type mockCollector struct {
 	ctrlOK, unitOK, driveOK, smartOK bool
 }
 
-func (m *mockCollector) CollectControllerDetails(ch chan<- prometheus.Metric) bool {
+func (m *mockCollector) CollectControllerInfo(ch chan<- prometheus.Metric) bool {
 	return m.ctrlOK
 }
 

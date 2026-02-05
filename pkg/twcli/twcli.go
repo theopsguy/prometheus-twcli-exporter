@@ -28,6 +28,15 @@ type Device struct {
 	Type string
 }
 
+type ControllerInfo struct {
+	Controller      string
+	Model           string
+	AvailableMemory string
+	FirmwareVersion string
+	BiosVersion     string
+	SerialNumber    string
+}
+
 type DriveLabels struct {
 	Status string
 	Unit   string
@@ -126,38 +135,50 @@ func (twcli *TWCli) GetDevices(controller string) ([]Device, error) {
 	return devices, nil
 }
 
-func (twcli *TWCli) GetControllerInfo(controller string) ([]string, error) {
-	labels := []string{controller}
+func (twcli *TWCli) GetControllerInfo(controller string) (ControllerInfo, error) {
+	info := ControllerInfo{
+		Controller: controller,
+	}
 
 	output, err := twcli.RunCommand(controller, "show", "all")
 	if err != nil {
-		return labels, err
+		return info, err
 	}
 
-	fields := []string{"Model", "Available Memory", "Firmware Version", "Bios Version", "Serial Number"}
+	fields := []struct {
+		outputName   string
+		target       *string
+		needsConvert bool
+	}{
+		{"Model", &info.Model, false},
+		{"Available Memory", &info.AvailableMemory, true},
+		{"Firmware Version", &info.FirmwareVersion, false},
+		{"Bios Version", &info.BiosVersion, false},
+		{"Serial Number", &info.SerialNumber, false},
+	}
 
 	for _, field := range fields {
-		pattern := fmt.Sprintf(`%s\s*%s\s*=\s*(.*)`, controller, field)
+		pattern := fmt.Sprintf(`%s\s*%s\s*=\s*(.*)`, controller, field.outputName)
 		re := regexp.MustCompile(pattern)
 		matches := re.FindStringSubmatch(string(output))
 
 		if len(matches) != 2 {
+			slog.Warn("Field not found", "field", field.outputName, "controller", controller)
 			continue
 		}
 
 		value := matches[1]
-		if field == "Available Memory" {
+		if field.needsConvert {
 			number, unit := parseAvailableMemory(value)
 			value, err = convertToBytes(number, unit)
 			if err != nil {
-				return labels, err
+				return info, err
 			}
 		}
-
-		labels = append(labels, value)
+		*field.target = value
 	}
 
-	return labels, nil
+	return info, nil
 }
 
 func (twcli *TWCli) GetUnitStatus(controller string) (string, string, string, int, error) {
