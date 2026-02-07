@@ -11,6 +11,14 @@ import (
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/shell"
 )
 
+type Client interface {
+	GetControllers() ([]string, error)
+	GetControllerInfo(controller string) (ControllerInfo, error)
+	GetUnitStatus(controller string) (UnitStatus, error)
+	GetDriveStatus(controller string) ([]DriveInfo, error)
+	GetSATASmartData(controller, device string) (SATASmartData, error)
+}
+
 type TWCli struct {
 	Shell         shell.Shell
 	Cmd           string

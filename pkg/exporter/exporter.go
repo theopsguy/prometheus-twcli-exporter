@@ -25,7 +25,7 @@ type MetricsCollector interface {
 
 type Collector struct {
 	ControllerInventory []twcli.ControllerInventory
-	TWCli               twcli.TWCli
+	TWCli               twcli.Client
 }
 
 type Exporter struct {
