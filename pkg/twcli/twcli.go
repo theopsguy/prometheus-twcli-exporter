@@ -37,6 +37,13 @@ type ControllerInfo struct {
 	SerialNumber    string
 }
 
+type UnitStatus struct {
+	Unit            string
+	Type            string
+	State           string
+	PercentComplete float64
+}
+
 type DriveLabels struct {
 	Status string
 	Unit   string
@@ -181,39 +188,38 @@ func (twcli *TWCli) GetControllerInfo(controller string) (ControllerInfo, error)
 	return info, nil
 }
 
-func (twcli *TWCli) GetUnitStatus(controller string) (string, string, string, int, error) {
-	var unit, unitType, unitStatus string
-	var percentComplete int
+func (twcli *TWCli) GetUnitStatus(controller string) (UnitStatus, error) {
+	status := UnitStatus{}
 
 	output, err := twcli.RunCommand(controller, "show", "unitstatus")
 	if err != nil {
-		return unit, unitType, unitStatus, percentComplete, err
+		return status, err
 	}
 
 	for _, line := range strings.Split(string(output), "\n") {
 		if strings.HasPrefix(line, "u") {
-			unitDetails := strings.Fields(line)
+			fields := strings.Fields(line)
 
-			unit = unitDetails[0]
-			unitType = unitDetails[1]
-			unitStatus = unitDetails[2]
-			rebuildPercent := unitDetails[3]
-			verifyingPercent := unitDetails[4]
+			status.Unit = fields[0]
+			status.Type = fields[1]
+			status.State = fields[2]
+			rebuildPercent := fields[3]
+			verifyingPercent := fields[4]
 
-			if unitStatus == "REBUILDING" {
+			if status.State == "REBUILDING" {
 				rebuildValue := strings.TrimSuffix(rebuildPercent, "%")
-				percentComplete, _ = strconv.Atoi(rebuildValue)
+				status.PercentComplete, _ = strconv.ParseFloat(rebuildValue, 64)
 			}
 
-			if unitStatus == "VERIFYING" {
+			if status.State == "VERIFYING" {
 				verifyingValue := strings.TrimSuffix(verifyingPercent, "%")
-				percentComplete, _ = strconv.Atoi(verifyingValue)
+				status.PercentComplete, _ = strconv.ParseFloat(verifyingValue, 64)
 			}
 
 		}
 	}
 
-	return unit, unitType, unitStatus, percentComplete, nil
+	return status, nil
 }
 
 func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {

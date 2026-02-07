@@ -176,22 +176,22 @@ func (c *Collector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
 	var statusGaugeValue float64 = 0
 
 	for _, controllerInventory := range c.ControllerInventory {
-		unit, unitType, unitStatus, percentComplete, err := c.TWCli.GetUnitStatus(controllerInventory.Name)
+		status, err := c.TWCli.GetUnitStatus(controllerInventory.Name)
 		if err != nil {
 			return false
 		}
 
-		if slices.Contains(okStates, unitStatus) {
+		if slices.Contains(okStates, status.State) {
 			statusGaugeValue = 1
 		}
 
 		ch <- prometheus.MustNewConstMetric(
-			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controllerInventory.Name, unit, unitType, unitStatus,
+			unitStatusDesc, prometheus.GaugeValue, statusGaugeValue, controllerInventory.Name, status.Unit, status.Type, status.State,
 		)
 
-		if slices.Contains(percentStates, unitStatus) {
+		if slices.Contains(percentStates, status.State) {
 			ch <- prometheus.MustNewConstMetric(
-				percentCompleteDesc, prometheus.GaugeValue, float64(percentComplete), controllerInventory.Name, unit, unitStatus,
+				percentCompleteDesc, prometheus.GaugeValue, status.PercentComplete, controllerInventory.Name, status.Unit, status.State,
 			)
 		}
 	}
