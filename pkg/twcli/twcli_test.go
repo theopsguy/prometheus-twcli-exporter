@@ -196,7 +196,7 @@ func TestGetDriveStatusDEGRADED(t *testing.T) {
 type deviceTestData struct {
 	Device         string
 	TestDataFile   string
-	ExpectedOutput *twcli.SATASmartData
+	ExpectedOutput twcli.SATASmartData
 }
 
 func TestGetSATASmartData(t *testing.T) {
@@ -204,22 +204,22 @@ func TestGetSATASmartData(t *testing.T) {
 		{
 			Device:         "/c4/p0",
 			TestDataFile:   "testdata/show_drive_all_c4_p0.txt",
-			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p0", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AA12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2355", Temperature: "31", SpindleSpeed: "5400"},
+			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p0", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AA12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2355", Temperature: "31", SpindleSpeed: "5400"},
 		},
 		{
 			Device:         "/c4/p1",
 			TestDataFile:   "testdata/show_drive_all_c4_p1.txt",
-			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p1", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AB12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2453", Temperature: "31", SpindleSpeed: "5400"},
+			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p1", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AB12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2453", Temperature: "31", SpindleSpeed: "5400"},
 		},
 		{
 			Device:         "/c4/p2",
 			TestDataFile:   "testdata/show_drive_all_c4_p2.txt",
-			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p2", Status: "OK", Model: "TOSHIBA HDWG440", Serial: "AC12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "20120", Temperature: "27", SpindleSpeed: "7200"},
+			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p2", Status: "OK", Model: "TOSHIBA HDWG440", Serial: "AC12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "20120", Temperature: "27", SpindleSpeed: "7200"},
 		},
 		{
 			Device:         "/c4/p3",
 			TestDataFile:   "testdata/show_drive_all_c4_p3.txt",
-			ExpectedOutput: &twcli.SATASmartData{Controller: "/c4", Device: "/c4/p3", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AD12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2349", Temperature: "31", SpindleSpeed: "5400"},
+			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p3", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AD12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2349", Temperature: "31", SpindleSpeed: "5400"},
 		},
 	}
 
