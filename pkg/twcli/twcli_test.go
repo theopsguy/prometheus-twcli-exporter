@@ -157,7 +157,7 @@ func TestGetDriveStatusOK(t *testing.T) {
 		Err:    nil,
 	}
 
-	expectedOutput := []twcli.DriveLabels{
+	expectedOutput := []twcli.DriveInfo{
 		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
 		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
 		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
@@ -180,7 +180,7 @@ func TestGetDriveStatusDEGRADED(t *testing.T) {
 		Err:    nil,
 	}
 
-	expectedOutput := []twcli.DriveLabels{
+	expectedOutput := []twcli.DriveInfo{
 		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
 		{Status: "DEGRADED", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
 		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},

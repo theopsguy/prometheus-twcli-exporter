@@ -44,7 +44,7 @@ type UnitStatus struct {
 	PercentComplete float64
 }
 
-type DriveLabels struct {
+type DriveInfo struct {
 	Status string
 	Unit   string
 	Size   string
@@ -222,8 +222,8 @@ func (twcli *TWCli) GetUnitStatus(controller string) (UnitStatus, error) {
 	return status, nil
 }
 
-func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
-	var drives []DriveLabels
+func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveInfo, error) {
+	var drives []DriveInfo
 
 	output, err := twcli.RunCommand(controller, "show", "drivestatus")
 	if err != nil {
@@ -232,24 +232,24 @@ func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
 
 	for _, line := range strings.Split(string(output), "\n") {
 		if strings.HasPrefix(line, "p") {
-			driveDetails := strings.Fields(line)
-			lineLength := len(driveDetails)
+			fields := strings.Fields(line)
+			lineLength := len(fields)
 
-			driveStatus := driveDetails[1]
-			unit := driveDetails[2]
-			driveSize := driveDetails[3]
-			driveSizeUnit := driveDetails[4]
+			driveStatus := fields[1]
+			unit := fields[2]
+			driveSize := fields[3]
+			driveSizeUnit := fields[4]
 			driveSizeBytes, _ := convertToBytes(driveSize, driveSizeUnit)
 
-			driveType := driveDetails[5]
-			drivePhy := driveDetails[6]
-			driveModel := driveDetails[8]
+			driveType := fields[5]
+			drivePhy := fields[6]
+			driveModel := fields[8]
 
 			if lineLength > 9 {
-				driveModel = fmt.Sprintf("%s %s", driveDetails[8], driveDetails[9])
+				driveModel = fmt.Sprintf("%s %s", fields[8], fields[9])
 			}
 
-			labels := DriveLabels{
+			drive := DriveInfo{
 				Status: driveStatus,
 				Unit:   unit,
 				Size:   driveSizeBytes,
@@ -257,7 +257,7 @@ func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveLabels, error) {
 				Phy:    drivePhy,
 				Model:  driveModel,
 			}
-			drives = append(drives, labels)
+			drives = append(drives, drive)
 		}
 	}
 
