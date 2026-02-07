@@ -101,12 +101,12 @@ func TestGetUnitStatusOK(t *testing.T) {
 	}
 
 	twcli := mockTWCli(mshell)
-	unit, unitType, unitStatus, percentComplete, err := twcli.GetUnitStatus("/c4")
+	status, err := twcli.GetUnitStatus("/c4")
 	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", unit)
-	assert.Equal(t, "RAID-5", unitType)
-	assert.Equal(t, "OK", unitStatus)
-	assert.Equal(t, 0, percentComplete)
+	assert.Equal(t, "u0", status.Unit)
+	assert.Equal(t, "RAID-5", status.Type)
+	assert.Equal(t, "OK", status.State)
+	assert.Equal(t, float64(0), status.PercentComplete)
 }
 
 func TestGetUnitStatusREBUILDING(t *testing.T) {
@@ -120,12 +120,12 @@ func TestGetUnitStatusREBUILDING(t *testing.T) {
 	}
 
 	twcli := mockTWCli(mshell)
-	unit, unitType, unitStatus, percentComplete, err := twcli.GetUnitStatus("/c4")
+	status, err := twcli.GetUnitStatus("/c4")
 	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", unit)
-	assert.Equal(t, "RAID-5", unitType)
-	assert.Equal(t, "REBUILDING", unitStatus)
-	assert.Equal(t, 35, percentComplete)
+	assert.Equal(t, "u0", status.Unit)
+	assert.Equal(t, "RAID-5", status.Type)
+	assert.Equal(t, "REBUILDING", status.State)
+	assert.Equal(t, float64(35), status.PercentComplete)
 }
 
 func TestGetUnitStatusVERIFYING(t *testing.T) {
@@ -139,12 +139,12 @@ func TestGetUnitStatusVERIFYING(t *testing.T) {
 	}
 
 	twcli := mockTWCli(mshell)
-	unit, unitType, unitStatus, percentComplete, err := twcli.GetUnitStatus("/c4")
+	status, err := twcli.GetUnitStatus("/c4")
 	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", unit)
-	assert.Equal(t, "RAID-5", unitType)
-	assert.Equal(t, "VERIFYING", unitStatus)
-	assert.Equal(t, 21, percentComplete)
+	assert.Equal(t, "u0", status.Unit)
+	assert.Equal(t, "RAID-5", status.Type)
+	assert.Equal(t, "VERIFYING", status.State)
+	assert.Equal(t, float64(21), status.PercentComplete)
 }
 
 func TestGetDriveStatusOK(t *testing.T) {
