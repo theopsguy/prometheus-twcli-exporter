@@ -242,7 +242,7 @@ func (c *Collector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
 	return true
 }
 
-func (c *Collector) emitSATAMetrics(data *twcli.SATASmartData, ch chan<- prometheus.Metric) {
+func (c *Collector) emitSATAMetrics(data twcli.SATASmartData, ch chan<- prometheus.Metric) {
 	status := data.Status
 	model := data.Model
 	serial := data.Serial

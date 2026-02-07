@@ -264,8 +264,8 @@ func (twcli *TWCli) GetDriveStatus(controller string) ([]DriveInfo, error) {
 	return drives, nil
 }
 
-func (twcli *TWCli) GetSATASmartData(controller string, device string) (*SATASmartData, error) {
-	data := &SATASmartData{
+func (twcli *TWCli) GetSATASmartData(controller string, device string) (SATASmartData, error) {
+	data := SATASmartData{
 		Controller: controller,
 		Device:     device,
 	}
