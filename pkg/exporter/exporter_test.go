@@ -16,6 +16,19 @@ import (
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
 )
 
+type mockTWCli struct {
+	controllers       []string
+	controllerDetails twcli.ControllerInfo
+	unitStatus        twcli.UnitStatus
+	driveStatus       []twcli.DriveInfo
+	sataSmartData     twcli.SATASmartData
+	err               error
+}
+
+func (m *mockTWCli) GetControllerInfo(controller string) (twcli.ControllerInfo, error) {
+	return m.controllerDetails, m.err
+}
+
 type labelMap map[string]string
 
 type metricResult struct {
@@ -102,31 +115,67 @@ func TestNewExporterExecNotFound(t *testing.T) {
 }
 
 func TestCollectControllerInfo(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_all.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
+	tests := []struct {
+		name     string
+		mockData mockTWCli
+		expected metricResult
+	}{
+		{
+			name: "Controller Info",
+			mockData: mockTWCli{
+				controllerDetails: twcli.ControllerInfo{
+					Controller:      "/c4",
+					AvailableMemory: "234881024",
+					BiosVersion:     "BE9X 4.08.00.004",
+					FirmwareVersion: "FE9X 4.10.00.027",
+					Model:           "9650SE-4LPML",
+					SerialNumber:    "L1234568912345",
+				},
+			},
+			expected: metricResult{
+				labels: labelMap{
+					"available_memory": "234881024",
+					"bios_version":     "BE9X 4.08.00.004",
+					"controller":       "/c4",
+					"firmware_version": "FE9X 4.10.00.027",
+					"model":            "9650SE-4LPML",
+					"serial_number":    "L1234568912345",
+				},
+				value:      1.0,
+				metricType: io_prometheus_client.MetricType_GAUGE,
+			},
+		},
 	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
-	}
 
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 1)
-	result := e.Collector.CollectControllerInfo(ch)
-	close(ch)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			controllerInventory := []twcli.ControllerInventory{
+				{
+					Name: "/c4",
+					Devices: []twcli.Device{
+						{Name: "/c4/p0", Type: "SATA"},
+					},
+				},
+			}
 
-	assert.True(t, result)
-	assert.Len(t, ch, 1)
+			collector := exporter.Collector{
+				ControllerInventory: controllerInventory,
+				TWCli:               &tt.mockData,
+			}
+			e := exporter.Exporter{Collector: &collector}
+			ch := make(chan prometheus.Metric, 10)
+			result := e.Collector.CollectControllerInfo(ch)
+			close(ch)
 
-	expectedMetrics := labelMap{"available_memory": "234881024", "bios_version": "BE9X 4.08.00.004", "controller": "/c4", "firmware_version": "FE9X 4.10.00.027", "model": "9650SE-4LPML", "serial_number": "L1234568912345"}
+			assert.True(t, result)
 
-	for metric := range ch {
-		data := readMetric(metric)
-
-		assert.Equal(t, 1.0, data.value)
-		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
-		assert.Equal(t, expectedMetrics, data.labels)
+			for m := range ch {
+				data := readMetric(m)
+				assert.Equal(t, tt.expected.value, data.value)
+				assert.Equal(t, tt.expected.labels, data.labels)
+				assert.Equal(t, tt.expected.metricType, data.metricType)
+			}
+		})
 	}
 }
 
