@@ -29,6 +29,10 @@ func (m *mockTWCli) GetControllerInfo(controller string) (twcli.ControllerInfo, 
 	return m.controllerDetails, m.err
 }
 
+func (m *mockTWCli) GetUnitStatus(controller string) (twcli.UnitStatus, error) {
+	return m.unitStatus, m.err
+}
+
 type labelMap map[string]string
 
 type metricResult struct {
@@ -179,104 +183,108 @@ func TestCollectControllerInfo(t *testing.T) {
 	}
 }
 
-func TestCollectUnitStatusOK(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_unitstatus_ok.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
-	}
-
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 1)
-	result := e.Collector.CollectUnitStatus(ch)
-	close(ch)
-
-	assert.True(t, result)
-	assert.Len(t, ch, 1)
-
-	expectedMetrics := labelMap{"controller": "/c4", "state": "OK", "type": "RAID-5", "unit": "u0"}
-
-	for metric := range ch {
-		data := readMetric(metric)
-
-		assert.Equal(t, 1.0, data.value)
-		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
-		assert.Equal(t, expectedMetrics, data.labels)
-	}
-}
-
-func TestCollectUnitStatusRebuilding(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_unitstatus_rebuilding.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
-	}
-
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 2)
-	result := e.Collector.CollectUnitStatus(ch)
-	close(ch)
-
-	assert.True(t, result)
-	assert.Len(t, ch, 2)
-
-	expectedLabels := map[int]labelMap{
-		4: {"controller": "/c4", "state": "REBUILDING", "type": "RAID-5", "unit": "u0"},
-		3: {"controller": "/c4", "state": "REBUILDING", "unit": "u0"},
-	}
-
-	expectedValues := map[int]float64{
-		4: 0.0,
-		3: 35.0,
-	}
-
-	for metric := range ch {
-		data := readMetric(metric)
-		assert.Equal(t, expectedValues[len(data.labels)], data.value)
-		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
-		assert.Equal(t, expectedLabels[len(data.labels)], data.labels)
-	}
-}
-
-func TestCollectUnitStatusVerifying(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_unitstatus_verifying.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
+func TestCollectUnitStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		mockData mockTWCli
+		expected metricResult
+	}{
+		{
+			name: "OK",
+			mockData: mockTWCli{
+				unitStatus: twcli.UnitStatus{
+					Unit:  "u0",
+					Type:  "RAID-5",
+					State: "OK",
+				},
+			},
+			expected: metricResult{
+				labels: labelMap{
+					"controller": "/c4",
+					"unit":       "u0",
+					"type":       "RAID-5",
+					"state":      "OK",
+				},
+				value:      1.0,
+				metricType: io_prometheus_client.MetricType_GAUGE,
+			},
+		},
+		{
+			name: "REBUILDING",
+			mockData: mockTWCli{
+				unitStatus: twcli.UnitStatus{
+					Unit:            "u0",
+					Type:            "RAID-5",
+					State:           "REBUILDING",
+					PercentComplete: 35.0,
+				},
+			},
+			expected: metricResult{
+				labels: labelMap{
+					"controller": "/c4",
+					"unit":       "u0",
+					"type":       "RAID-5",
+					"state":      "REBUILDING",
+				},
+				value:      0.0,
+				metricType: io_prometheus_client.MetricType_GAUGE,
+			},
+		},
+		{
+			name: "VERIFYING",
+			mockData: mockTWCli{
+				unitStatus: twcli.UnitStatus{
+					Unit:            "u0",
+					Type:            "RAID-5",
+					State:           "VERIFYING",
+					PercentComplete: 14.0,
+				},
+			},
+			expected: metricResult{
+				labels: labelMap{
+					"controller": "/c4",
+					"unit":       "u0",
+					"type":       "RAID-5",
+					"state":      "VERIFYING",
+				},
+				value:      1.0,
+				metricType: io_prometheus_client.MetricType_GAUGE,
+			},
+		},
 	}
 
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 2)
-	result := e.Collector.CollectUnitStatus(ch)
-	close(ch)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			controllerInventory := []twcli.ControllerInventory{
+				{
+					Name: "/c4",
+					Devices: []twcli.Device{
+						{Name: "/c4/p0", Type: "SATA"},
+					},
+				},
+			}
 
-	assert.True(t, result)
-	assert.Len(t, ch, 2)
+			collector := exporter.Collector{
+				ControllerInventory: controllerInventory,
+				TWCli:               &tt.mockData,
+			}
+			e := exporter.Exporter{Collector: &collector}
 
-	expectedLabels := map[int]labelMap{
-		4: {"controller": "/c4", "state": "VERIFYING", "type": "RAID-5", "unit": "u0"},
-		3: {"controller": "/c4", "state": "VERIFYING", "unit": "u0"},
-	}
+			ch := make(chan prometheus.Metric, 10)
+			result := e.Collector.CollectUnitStatus(ch)
+			close(ch)
 
-	expectedValues := map[int]float64{
-		4: 1.0,
-		3: 21.0,
-	}
+			assert.True(t, result)
 
-	for metric := range ch {
-		data := readMetric(metric)
-		assert.Equal(t, expectedValues[len(data.labels)], data.value)
-		assert.Equal(t, io_prometheus_client.MetricType_GAUGE, data.metricType)
-		assert.Equal(t, expectedLabels[len(data.labels)], data.labels)
+			for m := range ch {
+				data := readMetric(m)
+				if len(data.labels) == 4 {
+					assert.Equal(t, tt.expected.value, data.value)
+					assert.Equal(t, tt.expected.labels, data.labels)
+					assert.Equal(t, tt.expected.metricType, data.metricType)
+				}
+			}
+		})
 	}
 }
 
