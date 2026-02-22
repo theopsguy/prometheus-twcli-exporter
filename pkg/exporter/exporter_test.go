@@ -300,70 +300,138 @@ func TestCollectUnitStatus(t *testing.T) {
 	}
 }
 
-func TestCollectDriveStatusOK(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_drivestatus_ok.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
+var (
+	driveOK0 = twcli.DriveInfo{
+		Status: "OK",
+		Unit:   "u0",
+		Size:   "3991227208827",
+		Type:   "SATA",
+		Phy:    "0",
+		Model:  "ST4000VN006-3CW104",
 	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
+	driveOK1 = twcli.DriveInfo{
+		Status: "OK",
+		Unit:   "u0",
+		Size:   "3991227208827",
+		Type:   "SATA",
+		Phy:    "1",
+		Model:  "TOSHIBA HDWG440",
+	}
+	driveDegraded1 = twcli.DriveInfo{
+		Status: "DEGRADED",
+		Unit:   "u0",
+		Size:   "3991227208827",
+		Type:   "SATA",
+		Phy:    "1",
+		Model:  "TOSHIBA HDWG440",
+	}
+)
+
+func TestCollectDriveStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		mockData mockTWCli
+		expected []metricResult
+	}{
+		{
+			name:     "OK",
+			mockData: mockTWCli{driveInfo: []twcli.DriveInfo{driveOK0, driveOK1}},
+			expected: []metricResult{
+				{
+					labels: labelMap{
+						"status": "OK",
+						"unit":   "u0",
+						"size":   "3991227208827",
+						"type":   "SATA",
+						"phy":    "0",
+						"model":  "ST4000VN006-3CW104",
+					},
+					value:      1,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+				{
+					labels: labelMap{
+						"status": "OK",
+						"unit":   "u0",
+						"size":   "3991227208827",
+						"type":   "SATA",
+						"phy":    "1",
+						"model":  "TOSHIBA HDWG440",
+					},
+					value:      1,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+			},
+		},
+		{
+			name:     "DEGRADED",
+			mockData: mockTWCli{driveInfo: []twcli.DriveInfo{driveOK0, driveDegraded1}},
+			expected: []metricResult{
+				{
+					labels: labelMap{
+						"status": "OK",
+						"unit":   "u0",
+						"size":   "3991227208827",
+						"type":   "SATA",
+						"phy":    "0",
+						"model":  "ST4000VN006-3CW104",
+					},
+					value:      1,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+				{
+					labels: labelMap{
+						"status": "DEGRADED",
+						"unit":   "u0",
+						"size":   "3991227208827",
+						"type":   "SATA",
+						"phy":    "1",
+						"model":  "TOSHIBA HDWG440",
+					},
+					value:      0,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+			},
+		},
 	}
 
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 4)
-	result := e.Collector.CollectDriveStatus(ch)
-	close(ch)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			controllerInventory := []twcli.ControllerInventory{
+				{
+					Name: "/c4",
+					Devices: []twcli.Device{
+						{Name: "/c4/p0", Type: "SATA"},
+						{Name: "/c4/p1", Type: "SATA"},
+					},
+				},
+			}
 
-	assert.True(t, result)
-	assert.Len(t, ch, 4)
+			collector := exporter.Collector{
+				ControllerInventory: controllerInventory,
+				TWCli:               &tt.mockData,
+			}
+			e := exporter.Exporter{Collector: &collector}
 
-	expectedMetrics := map[string]labelMap{
-		"0": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "0", "model": "ST4000VN006-3CW104"},
-		"1": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "1", "model": "ST4000VN006-3CW104"},
-		"2": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "2", "model": "TOSHIBA HDWG440"},
-		"3": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "3", "model": "ST4000VN006-3CW104"},
-	}
+			ch := make(chan prometheus.Metric, 10)
+			result := e.Collector.CollectDriveStatus(ch)
+			close(ch)
 
-	for metric := range ch {
-		data := readMetric(metric)
-		assert.Equal(t, expectedMetrics[data.labels["phy"]], data.labels)
-		assert.Equal(t, 1.0, data.value)
-	}
-}
+			assert.True(t, result)
 
-func TestCollectDriveStatusDEGRADED(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_drivestatus_degraded.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
-	}
+			var actual []metricResult
+			for m := range ch {
+				actual = append(actual, readMetric(m))
+			}
 
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 4)
-	result := e.Collector.CollectDriveStatus(ch)
-	close(ch)
+			assert.Len(t, actual, len(tt.expected))
 
-	assert.True(t, result)
-	assert.Len(t, ch, 4)
-
-	expectedMetrics := map[string]labelMap{
-		"0": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "0", "model": "ST4000VN006-3CW104"},
-		"1": {"status": "DEGRADED", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "1", "model": "ST4000VN006-3CW104"},
-		"2": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "2", "model": "TOSHIBA HDWG440"},
-		"3": {"status": "OK", "unit": "u0", "size": "3991227208827", "type": "SATA", "phy": "3", "model": "ST4000VN006-3CW104"},
-	}
-
-	for metric := range ch {
-		data := readMetric(metric)
-		assert.Equal(t, expectedMetrics[data.labels["phy"]], data.labels)
-
-		if data.labels["status"] != "OK" {
-			assert.Equal(t, 0.0, data.value)
-		}
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected.value, actual[i].value)
+				assert.Equal(t, expected.labels, actual[i].labels)
+				assert.Equal(t, expected.metricType, actual[i].metricType)
+			}
+		})
 	}
 }
 
