@@ -17,20 +17,32 @@ import (
 )
 
 type mockTWCli struct {
-	controllers       []string
-	controllerDetails twcli.ControllerInfo
-	unitStatus        twcli.UnitStatus
-	driveStatus       []twcli.DriveInfo
-	sataSmartData     twcli.SATASmartData
-	err               error
+	controllers    []string
+	controllerInfo twcli.ControllerInfo
+	unitStatus     twcli.UnitStatus
+	driveInfo      []twcli.DriveInfo
+	sataSmartData  twcli.SATASmartData
+	err            error
+}
+
+func (m *mockTWCli) GetControllers() ([]string, error) {
+	return m.controllers, m.err
 }
 
 func (m *mockTWCli) GetControllerInfo(controller string) (twcli.ControllerInfo, error) {
-	return m.controllerDetails, m.err
+	return m.controllerInfo, m.err
 }
 
 func (m *mockTWCli) GetUnitStatus(controller string) (twcli.UnitStatus, error) {
 	return m.unitStatus, m.err
+}
+
+func (m *mockTWCli) GetDriveStatus(controller string) ([]twcli.DriveInfo, error) {
+	return m.driveInfo, m.err
+}
+
+func (m *mockTWCli) GetSATASmartData(controller, device string) (twcli.SATASmartData, error) {
+	return m.sataSmartData, m.err
 }
 
 type labelMap map[string]string
@@ -127,7 +139,7 @@ func TestCollectControllerInfo(t *testing.T) {
 		{
 			name: "Controller Info",
 			mockData: mockTWCli{
-				controllerDetails: twcli.ControllerInfo{
+				controllerInfo: twcli.ControllerInfo{
 					Controller:      "/c4",
 					AvailableMemory: "234881024",
 					BiosVersion:     "BE9X 4.08.00.004",
