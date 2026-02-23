@@ -1,10 +1,10 @@
 package twcli_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/theopsguy/prometheus-twcli-exporter/internal/testutil"
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
 )
 
@@ -27,8 +27,17 @@ func mockTWCli(shell MockShell) twcli.TWCli {
 	return twcli
 }
 
+func readTestOutputData(filename string) ([]byte, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func TestGetControllers(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show.txt")
+	testdata, err := readTestOutputData("testdata/show.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -44,7 +53,7 @@ func TestGetControllers(t *testing.T) {
 }
 
 func TestGetDevices(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_phy.txt")
+	testdata, err := readTestOutputData("testdata/show_phy.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -67,7 +76,7 @@ func TestGetDevices(t *testing.T) {
 }
 
 func TestGetControllerInfo(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_all.txt")
+	testdata, err := readTestOutputData("testdata/show_all.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -91,7 +100,7 @@ func TestGetControllerInfo(t *testing.T) {
 }
 
 func TestGetUnitStatusOK(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_unitstatus_ok.txt")
+	testdata, err := readTestOutputData("testdata/show_unitstatus_ok.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -110,7 +119,7 @@ func TestGetUnitStatusOK(t *testing.T) {
 }
 
 func TestGetUnitStatusREBUILDING(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_unitstatus_rebuilding.txt")
+	testdata, err := readTestOutputData("testdata/show_unitstatus_rebuilding.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -129,7 +138,7 @@ func TestGetUnitStatusREBUILDING(t *testing.T) {
 }
 
 func TestGetUnitStatusVERIFYING(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_unitstatus_verifying.txt")
+	testdata, err := readTestOutputData("testdata/show_unitstatus_verifying.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -148,7 +157,7 @@ func TestGetUnitStatusVERIFYING(t *testing.T) {
 }
 
 func TestGetDriveStatusOK(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_drivestatus_ok.txt")
+	testdata, err := readTestOutputData("testdata/show_drivestatus_ok.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -171,7 +180,7 @@ func TestGetDriveStatusOK(t *testing.T) {
 }
 
 func TestGetDriveStatusDEGRADED(t *testing.T) {
-	testdata, err := testutil.ReadTestOutputData("testdata/show_drivestatus_degraded.txt")
+	testdata, err := readTestOutputData("testdata/show_drivestatus_degraded.txt")
 	if err != nil {
 		t.Fatalf("Error reading test data: %s", err)
 	}
@@ -224,7 +233,7 @@ func TestGetSATASmartData(t *testing.T) {
 	}
 
 	for _, d := range devices {
-		testdata, err := testutil.ReadTestOutputData(d.TestDataFile)
+		testdata, err := readTestOutputData(d.TestDataFile)
 		if err != nil {
 			t.Fatalf("Error reading test data: %s", err)
 		}
