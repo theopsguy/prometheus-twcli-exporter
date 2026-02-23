@@ -548,38 +548,51 @@ func (m *mockCollector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool 
 	return m.smartOK
 }
 
-func TestExporterCollectOK(t *testing.T) {
-	ch := make(chan prometheus.Metric, 2)
-	e := &exporter.Exporter{
-		Collector: &mockCollector{true, true, true, true},
+func TestExporterCollectStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		mockData mockCollector
+		expected float64
+	}{
+		{
+			name: "OK",
+			mockData: mockCollector{
+				ctrlOK:  true,
+				unitOK:  true,
+				driveOK: true,
+				smartOK: true,
+			},
+			expected: 1.0,
+		},
+		{
+			name: "FAIL",
+			mockData: mockCollector{
+				ctrlOK:  false,
+				unitOK:  true,
+				driveOK: true,
+				smartOK: true,
+			},
+			expected: 0.0,
+		},
 	}
-	e.Collect(ch)
-	close(ch)
 
-	assert.Len(t, ch, 2)
-	for metric := range ch {
-		desc := metric.Desc().String()
-		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
-			data := readMetric(metric)
-			assert.Equal(t, 1.0, data.value)
-		}
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ch := make(chan prometheus.Metric, 2)
+			e := &exporter.Exporter{
+				Collector: &tt.mockData,
+			}
+			e.Collect(ch)
+			close(ch)
 
-func TestExporterCollectFail(t *testing.T) {
-	ch := make(chan prometheus.Metric, 2)
-	e := &exporter.Exporter{
-		Collector: &mockCollector{false, true, true, true},
-	}
-	e.Collect(ch)
-	close(ch)
-
-	assert.Len(t, ch, 2)
-	for metric := range ch {
-		desc := metric.Desc().String()
-		if strings.Contains(desc, "tw_cli_scrape_collector_success") {
-			data := readMetric(metric)
-			assert.Equal(t, 0.0, data.value)
-		}
+			assert.Len(t, ch, 2)
+			for metric := range ch {
+				desc := metric.Desc().String()
+				if strings.Contains(desc, "tw_cli_scrape_collector_success") {
+					data := readMetric(metric)
+					assert.Equal(t, tt.expected, data.value)
+				}
+			}
+		})
 	}
 }
