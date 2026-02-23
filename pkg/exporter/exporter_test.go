@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
-	"github.com/theopsguy/prometheus-twcli-exporter/internal/testutil"
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/config"
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/exporter"
 	"github.com/theopsguy/prometheus-twcli-exporter/pkg/twcli"
@@ -51,35 +50,6 @@ type metricResult struct {
 	labels     labelMap
 	value      float64
 	metricType io_prometheus_client.MetricType
-}
-
-type mockShell struct {
-	Output      []byte
-	Err         error
-	LastCommand string
-}
-
-func (t *mockShell) Execute(cmd string, args ...string) ([]byte, error) {
-	t.LastCommand = cmd
-
-	return t.Output, t.Err
-}
-
-func mockExporter(shell mockShell) exporter.Exporter {
-	var cacheMap = make(map[string]twcli.CacheRecord)
-	cli := twcli.TWCli{CacheDuration: 1, Cmd: "/fake/tw-cli", Cache: cacheMap, Shell: &shell}
-	var controllerInventory []twcli.ControllerInventory
-	controllerInventory = append(controllerInventory, twcli.ControllerInventory{
-		Name: "/c4",
-		Devices: []twcli.Device{
-			{Name: "/c4/p0", Type: "SATA"},
-		},
-	})
-
-	collector := exporter.Collector{ControllerInventory: controllerInventory, TWCli: &cli}
-	exporter := exporter.Exporter{Collector: &collector}
-
-	return exporter
 }
 
 func readMetric(m prometheus.Metric) metricResult {
@@ -436,67 +406,125 @@ func TestCollectDriveStatus(t *testing.T) {
 }
 
 func TestCollectDriveSmartData(t *testing.T) {
-	output, err := testutil.ReadTestOutputData("testdata/show_drive_all_c4_p0.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := mockShell{
-		Output: output,
-		Err:    nil,
-	}
-
-	e := mockExporter(mshell)
-	ch := make(chan prometheus.Metric, 3)
-	result := e.Collector.CollectDriveSmartData(ch)
-	close(ch)
-
-	assert.True(t, result)
-	assert.Len(t, ch, 3)
-
-	expectedMetrics := []metricResult{
-		{
-			labels: labelMap{
-				"status":        "OK",
-				"model":         "ST4000VN006-3CW104",
-				"serial":        "AA12345",
-				"spindle_speed": "5400",
-				"unit":          "u0",
-			},
-			value:      0,
-			metricType: io_prometheus_client.MetricType_GAUGE,
-		},
-		{
-			labels: labelMap{
-				"status":        "OK",
-				"model":         "ST4000VN006-3CW104",
-				"serial":        "AA12345",
-				"spindle_speed": "5400",
-				"unit":          "u0",
-			},
-			value:      2355,
-			metricType: io_prometheus_client.MetricType_COUNTER,
-		},
-		{
-			labels: labelMap{
-				"status":        "OK",
-				"model":         "ST4000VN006-3CW104",
-				"serial":        "AA12345",
-				"spindle_speed": "5400",
-				"unit":          "u0",
-			},
-			value:      31,
-			metricType: io_prometheus_client.MetricType_GAUGE,
-		},
+	smartLabelMap := labelMap{
+		"status":        "OK",
+		"model":         "ST4000VN006-3CW104",
+		"serial":        "AA12345",
+		"spindle_speed": "5400",
+		"unit":          "u0",
 	}
 
-	i := 0
-	for metric := range ch {
-		data := readMetric(metric)
-		assert.Equal(t, expectedMetrics[i].labels, data.labels)
-		assert.Equal(t, expectedMetrics[i].value, data.value)
-		assert.Equal(t, expectedMetrics[i].metricType, data.metricType)
+	tests := []struct {
+		name     string
+		mockData mockTWCli
+		expected []metricResult
+	}{
+		{
+			name: "HealthyDrive",
+			mockData: mockTWCli{
+				sataSmartData: twcli.SATASmartData{
+					Controller:         "/c4",
+					Device:             "/c4/p0",
+					Status:             "OK",
+					Model:              "ST4000VN006-3CW104",
+					Serial:             "AA12345",
+					Unit:               "u0",
+					ReallocatedSectors: "0",
+					PowerOnHours:       "2355",
+					Temperature:        "31",
+					SpindleSpeed:       "5400",
+				},
+			},
+			expected: []metricResult{
+				{
+					labels:     smartLabelMap,
+					value:      0,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+				{
+					labels:     smartLabelMap,
+					value:      2355,
+					metricType: io_prometheus_client.MetricType_COUNTER,
+				},
+				{
+					labels:     smartLabelMap,
+					value:      31,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+			},
+		},
+		{
+			name: "ReallocatedSectors",
+			mockData: mockTWCli{
+				sataSmartData: twcli.SATASmartData{
+					Controller:         "/c4",
+					Device:             "/c4/p0",
+					Status:             "OK",
+					Model:              "ST4000VN006-3CW104",
+					Serial:             "AA12345",
+					Unit:               "u0",
+					ReallocatedSectors: "1039",
+					PowerOnHours:       "2355",
+					Temperature:        "31",
+					SpindleSpeed:       "5400",
+				},
+			},
+			expected: []metricResult{
+				{
+					labels:     smartLabelMap,
+					value:      1039,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+				{
+					labels:     smartLabelMap,
+					value:      2355,
+					metricType: io_prometheus_client.MetricType_COUNTER,
+				},
+				{
+					labels:     smartLabelMap,
+					value:      31,
+					metricType: io_prometheus_client.MetricType_GAUGE,
+				},
+			},
+		},
+	}
 
-		i++
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			controllerInventory := []twcli.ControllerInventory{
+				{
+					Name: "/c4",
+					Devices: []twcli.Device{
+						{Name: "/c4/p0", Type: "SATA"},
+					},
+				},
+			}
+
+			collector := exporter.Collector{
+				ControllerInventory: controllerInventory,
+				TWCli:               &tt.mockData,
+			}
+			e := exporter.Exporter{Collector: &collector}
+
+			ch := make(chan prometheus.Metric, 10)
+			result := e.Collector.CollectDriveSmartData(ch)
+			close(ch)
+
+			assert.True(t, result)
+
+			var actual []metricResult
+			for m := range ch {
+				actual = append(actual, readMetric(m))
+			}
+
+			assert.Len(t, actual, len(tt.expected))
+
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected.value, actual[i].value)
+				assert.Equal(t, expected.labels, actual[i].labels)
+				assert.Equal(t, expected.metricType, actual[i].metricType)
+			}
+		})
 	}
 }
 
