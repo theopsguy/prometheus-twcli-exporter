@@ -2,6 +2,7 @@ package exporter_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -528,49 +529,57 @@ func TestCollectDriveSmartData(t *testing.T) {
 	}
 }
 
-type mockCollector struct {
-	ctrlOK, unitOK, driveOK, smartOK bool
-}
-
-func (m *mockCollector) CollectControllerInfo(ch chan<- prometheus.Metric) bool {
-	return m.ctrlOK
-}
-
-func (m *mockCollector) CollectUnitStatus(ch chan<- prometheus.Metric) bool {
-	return m.unitOK
-}
-
-func (m *mockCollector) CollectDriveStatus(ch chan<- prometheus.Metric) bool {
-	return m.driveOK
-}
-
-func (m *mockCollector) CollectDriveSmartData(ch chan<- prometheus.Metric) bool {
-	return m.smartOK
-}
-
 func TestExporterCollectStatus(t *testing.T) {
 	tests := []struct {
 		name     string
-		mockData mockCollector
+		mockData mockTWCli
 		expected float64
 	}{
 		{
 			name: "OK",
-			mockData: mockCollector{
-				ctrlOK:  true,
-				unitOK:  true,
-				driveOK: true,
-				smartOK: true,
+			mockData: mockTWCli{
+				controllerInfo: twcli.ControllerInfo{
+					Controller:      "/c4",
+					Model:           "9650SE-4LPML",
+					AvailableMemory: "234881024",
+					FirmwareVersion: "FE9X 4.10.00.027",
+					BiosVersion:     "BE9X 4.08.00.004",
+					SerialNumber:    "L1234568912345",
+				},
+				unitStatus: twcli.UnitStatus{
+					Unit:  "u0",
+					Type:  "RAID-5",
+					State: "OK",
+				},
+				driveInfo: []twcli.DriveInfo{
+					{
+						Status: "OK",
+						Unit:   "u0",
+						Size:   "3991227208827",
+						Type:   "SATA",
+						Phy:    "0",
+						Model:  "ST4000VN006-3CW104",
+					},
+				},
+				sataSmartData: twcli.SATASmartData{
+					Controller:         "/c4",
+					Device:             "/c4/p0",
+					Status:             "OK",
+					Model:              "ST4000VN006-3CW104",
+					Serial:             "AA12345",
+					Unit:               "u0",
+					ReallocatedSectors: "0",
+					PowerOnHours:       "2355",
+					Temperature:        "31",
+					SpindleSpeed:       "5400",
+				},
 			},
 			expected: 1.0,
 		},
 		{
 			name: "FAIL",
-			mockData: mockCollector{
-				ctrlOK:  false,
-				unitOK:  true,
-				driveOK: true,
-				smartOK: true,
+			mockData: mockTWCli{
+				err: fmt.Errorf("controller error"),
 			},
 			expected: 0.0,
 		},
@@ -578,14 +587,24 @@ func TestExporterCollectStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ch := make(chan prometheus.Metric, 2)
-			e := &exporter.Exporter{
-				Collector: &tt.mockData,
+			controllerInventory := []twcli.ControllerInventory{
+				{
+					Name:    "/c4",
+					Devices: []twcli.Device{{Name: "/c4/p0", Type: "SATA"}},
+				},
 			}
+
+			collector := exporter.Collector{
+				ControllerInventory: controllerInventory,
+				TWCli:               &tt.mockData,
+			}
+
+			e := &exporter.Exporter{Collector: &collector}
+
+			ch := make(chan prometheus.Metric, 10)
 			e.Collect(ch)
 			close(ch)
 
-			assert.Len(t, ch, 2)
 			for metric := range ch {
 				desc := metric.Desc().String()
 				if strings.Contains(desc, "tw_cli_scrape_collector_success") {
