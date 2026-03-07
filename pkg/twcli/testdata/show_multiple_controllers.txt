@@ -1,0 +1,5 @@
+
+Ctl   Model        (V)Ports  Drives   Units   NotOpt  RRate   VRate  BBU
+------------------------------------------------------------------------
+c3    9650SE-4LPML 4         2        1       0       1       1      -
+c4    9650SE-4LPML 4         4        1       0       1       1      -
