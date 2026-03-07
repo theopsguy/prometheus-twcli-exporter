@@ -37,214 +37,276 @@ func readTestOutputData(filename string) ([]byte, error) {
 }
 
 func TestGetControllers(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
+	tests := []struct {
+		name           string
+		testDataFile   string
+		expectedOutput []string
+	}{
+		{
+			name:           "Single Controller",
+			testDataFile:   "testdata/show_single_controller.txt",
+			expectedOutput: []string{"/c4"},
+		},
+		{
+			name:           "Multiple Controllers",
+			testDataFile:   "testdata/show_multiple_controllers.txt",
+			expectedOutput: []string{"/c3", "/c4"},
+		},
 	}
 
-	twcli := mockTWCli(mshell)
-	output, err := twcli.GetControllers()
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, []string{"/c4"}, output)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
+
+			twcli := mockTWCli(mshell)
+			output, err := twcli.GetControllers()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, output)
+		})
+	}
 }
 
 func TestGetDevices(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_phy.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
+	tests := []struct {
+		name           string
+		testDataFile   string
+		controller     string
+		expectedOutput []twcli.Device
+	}{
+		{
+			name:         "OK",
+			testDataFile: "testdata/show_phy.txt",
+			controller:   "/c4",
+			expectedOutput: []twcli.Device{
+				{Name: "/c4/p0", Type: "SATA"},
+				{Name: "/c4/p1", Type: "SATA"},
+				{Name: "/c4/p2", Type: "SATA"},
+				{Name: "/c4/p3", Type: "SATA"},
+			},
+		},
 	}
 
-	expectedOutput := []twcli.Device{
-		{Name: "/c4/p0", Type: "SATA"},
-		{Name: "/c4/p1", Type: "SATA"},
-		{Name: "/c4/p2", Type: "SATA"},
-		{Name: "/c4/p3", Type: "SATA"},
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
 
-	twcli := mockTWCli(mshell)
-	output, err := twcli.GetDevices("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, expectedOutput, output)
+			twcli := mockTWCli(mshell)
+			output, err := twcli.GetDevices(tt.controller)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, output)
+		})
+	}
 }
 
 func TestGetControllerInfo(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_all.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
+	tests := []struct {
+		name           string
+		testDataFile   string
+		controller     string
+		expectedOutput twcli.ControllerInfo
+	}{
+		{
+			name:         "OK",
+			testDataFile: "testdata/show_all.txt",
+			controller:   "/c4",
+			expectedOutput: twcli.ControllerInfo{
+				Controller:      "/c4",
+				AvailableMemory: "234881024",
+				BiosVersion:     "BE9X 4.08.00.004",
+				FirmwareVersion: "FE9X 4.10.00.027",
+				Model:           "9650SE-4LPML",
+				SerialNumber:    "L1234568912345",
+			},
+		},
 	}
 
-	mock := mockTWCli(mshell)
-	output, err := mock.GetControllerInfo("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	expected := twcli.ControllerInfo{
-		Controller:      "/c4",
-		AvailableMemory: "234881024",
-		BiosVersion:     "BE9X 4.08.00.004",
-		FirmwareVersion: "FE9X 4.10.00.027",
-		Model:           "9650SE-4LPML",
-		SerialNumber:    "L1234568912345",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
+
+			mock := mockTWCli(mshell)
+			output, err := mock.GetControllerInfo(tt.controller)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, output)
+		})
 	}
-	assert.Equal(t, expected, output)
 }
 
-func TestGetUnitStatusOK(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_unitstatus_ok.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
+func TestGetUnitStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		testDataFile   string
+		controller     string
+		expectedOutput twcli.UnitStatus
+	}{
+		{
+			name:         "OK",
+			testDataFile: "testdata/show_unitstatus_ok.txt",
+			controller:   "/c4",
+			expectedOutput: twcli.UnitStatus{
+				Unit:            "u0",
+				Type:            "RAID-5",
+				State:           "OK",
+				PercentComplete: 0.0,
+			},
+		},
+		{
+			name:         "REBUILDING",
+			testDataFile: "testdata/show_unitstatus_rebuilding.txt",
+			controller:   "/c4",
+			expectedOutput: twcli.UnitStatus{
+				Unit:            "u0",
+				Type:            "RAID-5",
+				State:           "REBUILDING",
+				PercentComplete: 35.0,
+			},
+		},
+		{
+			name:         "VERIFYING",
+			testDataFile: "testdata/show_unitstatus_verifying.txt",
+			controller:   "/c4",
+			expectedOutput: twcli.UnitStatus{
+				Unit:            "u0",
+				Type:            "RAID-5",
+				State:           "VERIFYING",
+				PercentComplete: 21.0,
+			},
+		},
 	}
 
-	twcli := mockTWCli(mshell)
-	status, err := twcli.GetUnitStatus("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", status.Unit)
-	assert.Equal(t, "RAID-5", status.Type)
-	assert.Equal(t, "OK", status.State)
-	assert.Equal(t, float64(0), status.PercentComplete)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
+
+			twcli := mockTWCli(mshell)
+			status, err := twcli.GetUnitStatus(tt.controller)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, status)
+		})
+	}
 }
 
-func TestGetUnitStatusREBUILDING(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_unitstatus_rebuilding.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
-	}
-
-	twcli := mockTWCli(mshell)
-	status, err := twcli.GetUnitStatus("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", status.Unit)
-	assert.Equal(t, "RAID-5", status.Type)
-	assert.Equal(t, "REBUILDING", status.State)
-	assert.Equal(t, float64(35), status.PercentComplete)
-}
-
-func TestGetUnitStatusVERIFYING(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_unitstatus_verifying.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
-	}
-
-	twcli := mockTWCli(mshell)
-	status, err := twcli.GetUnitStatus("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, "u0", status.Unit)
-	assert.Equal(t, "RAID-5", status.Type)
-	assert.Equal(t, "VERIFYING", status.State)
-	assert.Equal(t, float64(21), status.PercentComplete)
-}
-
-func TestGetDriveStatusOK(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_drivestatus_ok.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
+func TestGetDriveStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		testDataFile   string
+		controller     string
+		expectedOutput []twcli.DriveInfo
+	}{
+		{
+			name:         "OK",
+			testDataFile: "testdata/show_drivestatus_ok.txt",
+			controller:   "/c4",
+			expectedOutput: []twcli.DriveInfo{
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "3", Model: "ST4000VN006-3CW104"},
+			},
+		},
+		{
+			name:         "DEGRADED",
+			testDataFile: "testdata/show_drivestatus_degraded.txt",
+			controller:   "/c4",
+			expectedOutput: []twcli.DriveInfo{
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
+				{Status: "DEGRADED", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
+				{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "3", Model: "ST4000VN006-3CW104"},
+			},
+		},
 	}
 
-	expectedOutput := []twcli.DriveInfo{
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "3", Model: "ST4000VN006-3CW104"},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
+
+			twcli := mockTWCli(mshell)
+			drives, err := twcli.GetDriveStatus(tt.controller)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, drives)
+		})
 	}
-
-	twcli := mockTWCli(mshell)
-	drives, err := twcli.GetDriveStatus("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, expectedOutput, drives)
-}
-
-func TestGetDriveStatusDEGRADED(t *testing.T) {
-	testdata, err := readTestOutputData("testdata/show_drivestatus_degraded.txt")
-	if err != nil {
-		t.Fatalf("Error reading test data: %s", err)
-	}
-	mshell := MockShell{
-		Output: testdata,
-		Err:    nil,
-	}
-
-	expectedOutput := []twcli.DriveInfo{
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "0", Model: "ST4000VN006-3CW104"},
-		{Status: "DEGRADED", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "1", Model: "ST4000VN006-3CW104"},
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "2", Model: "TOSHIBA HDWG440"},
-		{Status: "OK", Unit: "u0", Size: "3991227208827", Type: "SATA", Phy: "3", Model: "ST4000VN006-3CW104"},
-	}
-
-	twcli := mockTWCli(mshell)
-	drives, err := twcli.GetDriveStatus("/c4")
-	assert.Nil(t, err, "unexpected error: %v", err)
-	assert.Equal(t, expectedOutput, drives)
-}
-
-type deviceTestData struct {
-	Device         string
-	TestDataFile   string
-	ExpectedOutput twcli.SATASmartData
 }
 
 func TestGetSATASmartData(t *testing.T) {
-	devices := []deviceTestData{
+	tests := []struct {
+		name           string
+		testDataFile   string
+		controller     string
+		device         string
+		expectedOutput twcli.SATASmartData
+	}{
 		{
-			Device:         "/c4/p0",
-			TestDataFile:   "testdata/show_drive_all_c4_p0.txt",
-			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p0", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AA12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2355", Temperature: "31", SpindleSpeed: "5400"},
+			name:         "OK",
+			testDataFile: "testdata/show_drive_all_c4_p0.txt",
+			controller:   "/c4",
+			device:       "/c4/p0",
+			expectedOutput: twcli.SATASmartData{
+				Controller:         "/c4",
+				Device:             "/c4/p0",
+				Status:             "OK",
+				Model:              "ST4000VN006-3CW104",
+				Serial:             "AA12345",
+				Unit:               "u0",
+				ReallocatedSectors: "0",
+				PowerOnHours:       "2355",
+				Temperature:        "31",
+				SpindleSpeed:       "5400",
+			},
 		},
 		{
-			Device:         "/c4/p1",
-			TestDataFile:   "testdata/show_drive_all_c4_p1.txt",
-			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p1", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AB12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2453", Temperature: "31", SpindleSpeed: "5400"},
-		},
-		{
-			Device:         "/c4/p2",
-			TestDataFile:   "testdata/show_drive_all_c4_p2.txt",
-			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p2", Status: "OK", Model: "TOSHIBA HDWG440", Serial: "AC12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "20120", Temperature: "27", SpindleSpeed: "7200"},
-		},
-		{
-			Device:         "/c4/p3",
-			TestDataFile:   "testdata/show_drive_all_c4_p3.txt",
-			ExpectedOutput: twcli.SATASmartData{Controller: "/c4", Device: "/c4/p3", Status: "OK", Model: "ST4000VN006-3CW104", Serial: "AD12345", Unit: "u0", ReallocatedSectors: "0", PowerOnHours: "2349", Temperature: "31", SpindleSpeed: "5400"},
+			name:         "DEGRADED",
+			testDataFile: "testdata/show_drive_all_c4_p1.txt",
+			controller:   "/c4",
+			device:       "/c4/p1",
+			expectedOutput: twcli.SATASmartData{
+				Controller:         "/c4",
+				Device:             "/c4/p1",
+				Status:             "DEGRADED",
+				Model:              "ST4000VN006-3CW104",
+				Serial:             "AB12345",
+				Unit:               "u0",
+				ReallocatedSectors: "0",
+				PowerOnHours:       "2453",
+				Temperature:        "31",
+				SpindleSpeed:       "5400",
+			},
 		},
 	}
 
-	for _, d := range devices {
-		testdata, err := readTestOutputData(d.TestDataFile)
-		if err != nil {
-			t.Fatalf("Error reading test data: %s", err)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testdata, err := readTestOutputData(tt.testDataFile)
+			if err != nil {
+				t.Fatalf("Error reading test data: %s", err)
+			}
+			mshell := MockShell{Output: testdata}
 
-		mshell := MockShell{
-			Output: testdata,
-			Err:    nil,
-		}
-
-		twcli := mockTWCli(mshell)
-		labels, _ := twcli.GetSATASmartData("/c4", d.Device)
-		assert.Equal(t, d.ExpectedOutput, labels)
+			twcli := mockTWCli(mshell)
+			labels, err := twcli.GetSATASmartData(tt.controller, tt.device)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedOutput, labels)
+		})
 	}
 }

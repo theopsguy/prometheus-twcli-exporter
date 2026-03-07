@@ -1,4 +1,4 @@
-/c4/p1 Status = OK
+/c4/p1 Status = DEGRADED
 /c4/p1 Model = ST4000VN006-3CW104
 /c4/p1 Firmware Version = SC60
 /c4/p1 Serial = AB12345
